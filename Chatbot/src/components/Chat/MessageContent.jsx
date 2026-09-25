@@ -1,10 +1,30 @@
-import { Fragment } from "react";
-import { Box, Code, Flex, IconButton, Text, useClipboard, useColorModeValue } from "@chakra-ui/react";
+import { memo } from "react";
+import {
+    Box,
+    Code,
+    Flex,
+    Heading,
+    IconButton,
+    Link,
+    ListItem,
+    OrderedList,
+    Table,
+    TableContainer,
+    Tbody,
+    Td,
+    Text,
+    Th,
+    Thead,
+    Tr,
+    UnorderedList,
+    useClipboard,
+    useColorModeValue,
+} from "@chakra-ui/react";
 import { FiCheck, FiCopy } from "react-icons/fi";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
-
-const CODE_BLOCK = /```[ \t]*([\w+-]*)[^\n]*\n([\s\S]*?)```/g;
 
 function CodeBlock({ language, code }) {
     const { hasCopied, onCopy } = useClipboard(code);
@@ -26,52 +46,59 @@ function CodeBlock({ language, code }) {
                 language={language || "text"}
                 style={style}
                 customStyle={{ margin: 0, padding: "1em", fontSize: "0.85rem", borderRadius: 0, overflowX: "auto" }}
-                wrapLongLines={false}
             >
-                {code.replace(/\n$/, "")}
+                {code}
             </SyntaxHighlighter>
         </Box>
     );
 }
 
-// Inline `code` and **bold**; everything else is plain text.
-function InlineText({ text }) {
-    const parts = text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/g);
-    return (
-        <Text as="div" whiteSpace="pre-wrap" wordBreak="break-word" lineHeight="1.7">
-            {parts.map((part, i) => {
-                if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-                    return <Code key={i} fontSize="0.85em" px={1} borderRadius="md">{part.slice(1, -1)}</Code>;
-                }
-                if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-                    return <strong key={i}>{part.slice(2, -2)}</strong>;
-                }
-                return <Fragment key={i}>{part}</Fragment>;
-            })}
-        </Text>
-    );
-}
-
-// Renders an AI/user message: fenced code blocks get syntax highlighting.
-const MessageContent = ({ text }) => {
-    if (!text) return null;
-    const elements = [];
-    let lastIndex = 0;
-    let match;
-    CODE_BLOCK.lastIndex = 0;
-
-    while ((match = CODE_BLOCK.exec(text)) !== null) {
-        const [full, language, code] = match;
-        if (match.index > lastIndex) {
-            elements.push(<InlineText key={`t-${lastIndex}`} text={text.slice(lastIndex, match.index)} />);
+// Maps Markdown elements onto themed Chakra components.
+const components = {
+    p: ({ children }) => <Text mb={3} _last={{ mb: 0 }} lineHeight="1.75">{children}</Text>,
+    h1: ({ children }) => <Heading as="h3" size="md" mt={4} mb={2}>{children}</Heading>,
+    h2: ({ children }) => <Heading as="h4" size="sm" mt={4} mb={2}>{children}</Heading>,
+    h3: ({ children }) => <Heading as="h5" size="sm" mt={3} mb={2}>{children}</Heading>,
+    ul: ({ children }) => <UnorderedList pl={1} mb={3} spacing={1}>{children}</UnorderedList>,
+    ol: ({ children }) => <OrderedList pl={1} mb={3} spacing={1}>{children}</OrderedList>,
+    li: ({ children }) => <ListItem lineHeight="1.7">{children}</ListItem>,
+    a: ({ href, children }) => <Link href={href} isExternal color="accent" textDecoration="underline">{children}</Link>,
+    blockquote: ({ children }) => (
+        <Box borderLeftWidth="3px" borderColor="border.default" pl={3} my={3} color="text.muted">{children}</Box>
+    ),
+    hr: () => <Box as="hr" my={4} borderColor="border.default" />,
+    table: ({ children }) => (
+        <TableContainer my={3} borderWidth="1px" borderColor="border.default" borderRadius="lg" whiteSpace="normal">
+            <Table size="sm">{children}</Table>
+        </TableContainer>
+    ),
+    thead: ({ children }) => <Thead bg="bg.muted">{children}</Thead>,
+    tbody: ({ children }) => <Tbody>{children}</Tbody>,
+    tr: ({ children }) => <Tr>{children}</Tr>,
+    th: ({ children }) => <Th textTransform="none" fontSize="sm" borderColor="border.default" wordBreak="normal" minW="90px">{children}</Th>,
+    td: ({ children }) => <Td borderColor="border.default" wordBreak="normal" minW="90px" verticalAlign="top">{children}</Td>,
+    pre: ({ children }) => <>{children}</>,
+    code: ({ className, children }) => {
+        const match = /language-([\w+-]+)/.exec(className || "");
+        const text = String(children ?? "");
+        // Fenced blocks get a language class or span several lines; everything else is inline.
+        if (match || text.includes("\n")) {
+            return <CodeBlock language={match?.[1]} code={text.replace(/\n$/, "")} />;
         }
-        elements.push(<CodeBlock key={`c-${match.index}`} language={language} code={code} />);
-        lastIndex = match.index + full.length;
-    }
-    if (lastIndex < text.length) {
-        elements.push(<InlineText key={`t-${lastIndex}`} text={text.slice(lastIndex)} />);
-    }
-    return <>{elements}</>;
+        return <Code fontSize="0.85em" px={1} borderRadius="md">{text}</Code>;
+    },
 };
 
-export default MessageContent;
+// Renders a message as GitHub-flavoured Markdown (tables, lists, code blocks...).
+const MessageContent = ({ text }) => {
+    if (!text) return null;
+    return (
+        <Box wordBreak="break-word" sx={{ "& > *:first-of-type": { mt: 0 } }}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                {text}
+            </ReactMarkdown>
+        </Box>
+    );
+};
+
+export default memo(MessageContent);

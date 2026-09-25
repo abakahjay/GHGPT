@@ -1,64 +1,16 @@
-import { useEffect } from "react";
-import { Box, Divider, Flex, Text, VStack } from "@chakra-ui/react";
-import { Link as RouterLink, useParams } from "react-router-dom";
-import { BiLogOut } from "react-icons/bi";
+import { Divider, Flex, VStack, useDisclosure } from "@chakra-ui/react";
 import SidebarItems from "./SidebarItems";
-import ProfileLink from "./ProfileLink";
-import NavItem from "./NavItem";
+import RecentChats from "./RecentChats";
+import ProfileMenu from "./ProfileMenu";
 import Brand from "../ui/Brand";
 import ColorModeToggle from "../ui/ColorModeToggle";
-import useLogout from '../../hooks/useLogout.js';
-import useAiChatActions from "../../hooks/useAiChatActions";
-import useAiChatStore from "../../store/useAiChatStore";
+import SettingsModal from "../Settings/SettingsModal";
 import { unwrapUser } from "../../utils/auth";
-
-// Most recent chats, shown in the expanded sidebar.
-function RecentChats({ userId, onNavigate }) {
-    const userChats = useAiChatStore((state) => state.userChats);
-    const { fetchUserChats } = useAiChatActions();
-    const { chatId } = useParams();
-
-    useEffect(() => {
-        if (userId) fetchUserChats(userId, { silent: true });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userId]);
-
-    const recent = [...userChats].reverse().slice(0, 15);
-    if (recent.length === 0) return null;
-
-    return (
-        <Box flex={1} minH={0} overflowY="auto" mx={-1} px={1} className="scroll-on-hover">
-            <Text fontSize="xs" fontWeight="semibold" color="text.muted" px={3} mb={1} textTransform="uppercase" letterSpacing="wider">
-                Recent
-            </Text>
-            <VStack spacing={0.5} align="stretch">
-                {recent.map((chat) => (
-                    <Box
-                        key={chat.chatId}
-                        as={RouterLink}
-                        to={`/chat/${chat.chatId}`}
-                        onClick={onNavigate}
-                        px={3}
-                        py={1.5}
-                        borderRadius="md"
-                        fontSize="sm"
-                        noOfLines={1}
-                        bg={chat.chatId === chatId ? "bg.muted" : "transparent"}
-                        color={chat.chatId === chatId ? "text.default" : "text.muted"}
-                        _hover={{ bg: "bg.hover", color: "text.default" }}
-                    >
-                        {chat.title && chat.title !== "." ? chat.title : "New chat"}
-                    </Box>
-                ))}
-            </VStack>
-        </Box>
-    );
-}
 
 // `compact` renders an icon-only rail (tablet widths); otherwise full labels.
 export function SideBar({ authUser, onLogout, compact = false, onNavigate }) {
     const user = unwrapUser(authUser);
-    const { isLoading } = useLogout();
+    const settings = useDisclosure();
 
     return (
         <Flex
@@ -73,7 +25,7 @@ export function SideBar({ authUser, onLogout, compact = false, onNavigate }) {
             }}
         >
             <Flex align="center" justify={compact ? "center" : "space-between"} px={compact ? 0 : 2} mb={4}>
-                <Brand showText={!compact} size="32px" />
+                <Brand showText={!compact} size="32px" to="/dashboard" />
                 {!compact && <ColorModeToggle />}
             </Flex>
 
@@ -81,24 +33,25 @@ export function SideBar({ authUser, onLogout, compact = false, onNavigate }) {
                 <SidebarItems authUser={authUser} compact={compact} />
             </VStack>
 
-            {!compact && (
+            {compact ? <Flex flex={1} /> : (
                 <>
                     <Divider my={2} borderColor="border.default" />
                     <RecentChats userId={user?._id} />
                 </>
             )}
 
-            <VStack spacing={1} align="stretch" mt="auto" pt={2}>
+            <VStack spacing={1} align="stretch" pt={2} borderTopWidth={compact ? 0 : "1px"} borderColor="border.default">
                 {compact && <Flex justify="center"><ColorModeToggle /></Flex>}
-                <ProfileLink authUser={authUser} compact={compact} />
-                <NavItem
-                    icon={<BiLogOut />}
-                    label="Log out"
+                <ProfileMenu
+                    authUser={authUser}
                     compact={compact}
-                    isLoading={isLoading}
-                    onClick={() => onLogout?.(user?._id)}
+                    onSettings={settings.onOpen}
+                    onLogout={onLogout}
+                    onNavigate={onNavigate}
                 />
             </VStack>
+
+            <SettingsModal isOpen={settings.isOpen} onClose={settings.onClose} />
         </Flex>
     );
 }

@@ -20,7 +20,7 @@ import useAiChatStore from "../../store/useAiChatStore";
 import { unwrapUser } from "../../utils/auth";
 import { timeAgo } from "../../utils/timeAgo";
 
-const chatTitle = (chat) => (chat.title && chat.title !== "." ? chat.title : "New chat");
+import { displayTitle as chatTitle } from "../../utils/chatTitle";
 
 const MessagesPage = ({ authUser }) => {
   const userId = unwrapUser(authUser)?._id;

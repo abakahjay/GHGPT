@@ -21,6 +21,8 @@ const Composer = ({
     attachment,
     onAttach,
     isSending = false,
+    isGenerating = false, // an answer is streaming: show Stop instead of Send
+    onStop,
     placeholder = "Message GH-GPT",
     autoFocus = false,
 }) => {
@@ -39,7 +41,7 @@ const Composer = ({
         el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
     }, [value]);
 
-    const canSend = (value.trim() || attachment) && !isSending;
+    const canSend = (value.trim() || attachment) && !isSending && !isGenerating;
 
     const readImage = (file) => {
         if (!file) return;
@@ -152,17 +154,32 @@ const Composer = ({
                     </Tooltip>
                 </Flex>
 
-                <IconButton
-                    icon={<FiArrowUp />}
-                    aria-label="Send message"
-                    isRound
-                    size="sm"
-                    fontSize="lg"
-                    colorScheme="blue"
-                    isDisabled={!canSend}
-                    isLoading={isSending}
-                    onClick={onSend}
-                />
+                {isGenerating ? (
+                    <Tooltip label="Stop generating (Esc)" hasArrow openDelay={400}>
+                        <IconButton
+                            icon={<FiSquare />}
+                            aria-label="Stop generating"
+                            isRound
+                            size="sm"
+                            bg="text.default"
+                            color="bg.canvas"
+                            _hover={{ opacity: 0.85 }}
+                            onClick={onStop}
+                        />
+                    </Tooltip>
+                ) : (
+                    <IconButton
+                        icon={<FiArrowUp />}
+                        aria-label="Send message"
+                        isRound
+                        size="sm"
+                        fontSize="lg"
+                        colorScheme="blue"
+                        isDisabled={!canSend}
+                        isLoading={isSending}
+                        onClick={onSend}
+                    />
+                )}
             </Flex>
         </Box>
     );

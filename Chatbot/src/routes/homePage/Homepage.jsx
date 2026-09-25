@@ -120,6 +120,8 @@ const Homepage = ({ authUser }) => {
           <Link as={RouterLink} to="/">Terms of Service</Link>
           <Text>|</Text>
           <Link as={RouterLink} to="/">Privacy Policy</Link>
+          <Text>|</Text>
+          <Link as={RouterLink} to="/install">Get the app</Link>
         </HStack>
         <Text>
           Copyright &copy; {new Date().getFullYear()} Built by{" "}

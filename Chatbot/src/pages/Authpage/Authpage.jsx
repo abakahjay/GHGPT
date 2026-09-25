@@ -1,4 +1,5 @@
-import { Flex, HStack, Image, Text } from "@chakra-ui/react";
+import { Flex, HStack, Image, Link } from "@chakra-ui/react";
+import { Link as RouterLink } from "react-router-dom";
 import { AuthForm } from "./AuthForm";
 import Brand from "../../components/ui/Brand";
 import ColorModeToggle from "../../components/ui/ColorModeToggle";
@@ -14,10 +15,12 @@ export function Authpage({ onAuth }) {
 			<Flex flex={1} align="center" justify="center" px={4} py={{ base: 6, md: 10 }}>
 				<Flex direction="column" gap={4} w="full" maxW="400px">
 					<AuthForm onAuth={onAuth} />
-					<Text textAlign="center" fontSize="sm" color="text.muted">Get the app</Text>
-					<HStack spacing={4} justify="center">
-						<Image src='/playstore.png' h="10" alt='Get it on Google Play' />
-						<Image src='/microsoft.png' h="10" alt='Get it from Microsoft' />
+					<Link as={RouterLink} to="/install" textAlign="center" fontSize="sm" color="text.muted" _hover={{ color: "accent" }}>
+						Get the app for iPhone, Android, Windows &amp; Mac
+					</Link>
+					<HStack as={RouterLink} to="/install" spacing={4} justify="center">
+						<Image src='/playstore.png' h="10" alt='Install on Android' />
+						<Image src='/microsoft.png' h="10" alt='Install on Windows' />
 					</HStack>
 				</Flex>
 			</Flex>

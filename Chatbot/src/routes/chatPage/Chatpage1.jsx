@@ -13,23 +13,25 @@ import {
   Textarea,
   Tooltip,
 } from "@chakra-ui/react";
-import { FiCopy, FiEdit2, FiTrash2, FiVolume2 } from "react-icons/fi";
+import { FiAlertTriangle, FiArrowDown, FiCopy, FiEdit2, FiRefreshCw, FiTrash2, FiVolume2 } from "react-icons/fi";
 import { useParams } from "react-router-dom";
 import useShowToast from "../../hooks/useShowToast";
 import useGetChat from "../../hooks/useGetChat";
-import useHandleMessageSend from "../../hooks/useHandleMessageSend";
 import useDeleteMessage from "../../hooks/useDeleteMessage";
-import useEditMessage from "../../hooks/useEditMessage";
 import useAiChatStore from "../../store/useAiChatStore";
+import API from "../../utils/api";
 import { unwrapUser } from "../../utils/auth";
+import { formatHistory } from "../../utils/formatMessage";
+import { getCustomInstructions, streamMessage, uploadChatImage } from "../../utils/ghgptApi";
 import { ChatGptLogo1 } from "../../assets/constants";
 import Composer from "../../components/Chat/Composer";
 import MessageContent from "../../components/Chat/MessageContent";
+import ChatHeader from "../../components/Chat/ChatHeader";
 
 const BotLogo = chakra(ChatGptLogo1);
 
 // A freshly created chat starts with a "." placeholder message that the
-// backend replaces with a real title; it is never shown.
+// backend drops once the first real question arrives; it is never shown.
 const isPlaceholder = (msg) => msg.fromUser && !msg.image && msg.text === ".";
 
 const bounce = keyframes`
@@ -37,32 +39,20 @@ const bounce = keyframes`
   40% { transform: scale(1); opacity: 1; }
 `;
 
-function TypingIndicator() {
+function ThinkingDots() {
   return (
-    <Flex gap={3} align="flex-start" mb={6}>
-      <BotLogo boxSize="28px" flexShrink={0} mt={1} />
-      <HStack spacing={1.5} bg="bubble.bot" px={4} py={3} borderRadius="2xl" borderTopLeftRadius="sm">
-        {[0, 1, 2].map((i) => (
-          <Box key={i} boxSize="8px" borderRadius="full" bg="text.muted" animation={`${bounce} 1.2s ${i * 0.16}s infinite ease-in-out`} />
-        ))}
-      </HStack>
-    </Flex>
+    <HStack spacing={1.5} h="24px" align="center">
+      {[0, 1, 2].map((i) => (
+        <Box key={i} boxSize="7px" borderRadius="full" bg="text.muted" animation={`${bounce} 1.2s ${i * 0.16}s infinite ease-in-out`} />
+      ))}
+    </HStack>
   );
 }
 
 function ActionButton({ label, icon, onClick, isLoading }) {
   return (
     <Tooltip label={label} hasArrow openDelay={400}>
-      <IconButton
-        icon={icon}
-        aria-label={label}
-        size="xs"
-        variant="ghost"
-        color="text.muted"
-        fontSize="sm"
-        isLoading={isLoading}
-        onClick={onClick}
-      />
+      <IconButton icon={icon} aria-label={label} size="xs" variant="ghost" color="text.muted" fontSize="sm" isLoading={isLoading} onClick={onClick} />
     </Tooltip>
   );
 }
@@ -93,40 +83,144 @@ const ChatPage = ({ authUser }) => {
   const { chatId } = useParams();
   const userId = unwrapUser(authUser)?._id;
   const showToast = useShowToast();
+  const setChats = useAiChatStore((s) => s.setChats);
+  const chatEntry = useAiChatStore((s) => s.userChats.find((c) => String(c.chatId) === String(chatId)));
 
   const [input, setInput] = useState("");
   const [attachment, setAttachment] = useState(null);
-  const [optimistic, setOptimistic] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingText, setEditingText] = useState("");
   const [deletingIndex, setDeletingIndex] = useState(null);
+  // The exchange in progress: { mode, prompt, image, editIndex, error, body }
+  const [live, setLive] = useState(null);
+  const [liveText, setLiveText] = useState(""); // what's been revealed on screen so far
+  const [atBottom, setAtBottom] = useState(true);
+
   const scrollRef = useRef(null);
+  const abortRef = useRef(null);
+  const targetRef = useRef(""); // full streamed text; liveText catches up to it
+  const doneRef = useRef(null); // final history, applied once the reveal finishes
   const handledPending = useRef(null);
 
   const { chats, isLoading } = useGetChat(userId, chatId);
-  const { handleMessageSend, loading: sending } = useHandleMessageSend();
   const { handleMessageDelete } = useDeleteMessage();
-  const { editMessage, loading: editingLoading } = useEditMessage();
+  const generating = Boolean(live && !live.error);
 
-  // `idx` is the message's position in the saved history (used by edit/delete);
-  // optimistic messages that aren't saved yet have idx = null.
-  const messages = useMemo(
-    () => [
-      ...chats.map((msg, idx) => ({ ...msg, idx })).filter((msg) => !isPlaceholder(msg)),
-      ...optimistic.map((msg) => ({ ...msg, idx: null })),
-    ],
-    [chats, optimistic]
-  );
+  const reloadChat = useCallback(async () => {
+    try {
+      const { data } = await API.get(`/api/v1/ai/chats/${userId}/${chatId}`);
+      if (mountedRef.current) setChats(formatHistory(data.data?.history));
+    } catch {
+      // the chat view keeps what it has
+    }
+  }, [userId, chatId, setChats]);
 
-  const sendMessage = useCallback(
-    async ({ text, file, preview }) => {
-      setOptimistic([{ text, image: preview, fromUser: true }]);
-      const ok = await handleMessageSend({ userId, chatId, prompt: text || null, file, text });
-      setOptimistic([]);
-      return ok;
+  // Reveal streamed text smoothly (models often send big chunks at once).
+  useEffect(() => {
+    if (!live || live.error) return undefined;
+    let frame;
+    const tick = () => {
+      setLiveText((shown) => {
+        const target = targetRef.current;
+        if (shown.length >= target.length) return shown;
+        const backlog = target.length - shown.length;
+        return target.slice(0, shown.length + Math.max(2, Math.ceil(backlog / 12)));
+      });
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [live]);
+
+  // Once the answer is complete and fully revealed, swap in the saved history.
+  useEffect(() => {
+    if (doneRef.current && liveText.length >= targetRef.current.length) {
+      setChats(formatHistory(doneRef.current));
+      doneRef.current = null;
+      setLive(null);
+      setLiveText("");
+    }
+  }, [liveText, setChats]);
+
+  const run = useCallback(
+    async (liveInit, body) => {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      targetRef.current = "";
+      doneRef.current = null;
+      setLiveText("");
+      setLive({ ...liveInit, body, error: null });
+      setAtBottom(true);
+
+      let finished = false;
+      try {
+        let imageId = body.imageId;
+        if (liveInit.file && !imageId) {
+          imageId = await uploadChatImage(liveInit.file);
+          body = { ...body, imageId };
+          setLive((l) => (l ? { ...l, body } : l));
+        }
+        await streamMessage(
+          chatId,
+          { ...body, customInstructions: getCustomInstructions() },
+          {
+            signal: controller.signal,
+            onEvent: (event) => {
+              if (event.type === "token") targetRef.current += event.text;
+              if (event.type === "done") {
+                finished = true;
+                doneRef.current = event.history;
+                if (!targetRef.current) targetRef.current = " "; // let the swap effect run
+              }
+              // Browsers pause animation frames in background tabs: show everything at once there.
+              if (document.hidden) setLiveText(targetRef.current);
+              if (event.type === "title") {
+                const { userChats, setUserChats } = useAiChatStore.getState();
+                setUserChats(userChats.map((c) => (String(c.chatId) === String(chatId) ? { ...c, title: event.title } : c)));
+              }
+              if (event.type === "error") throw new Error(event.message);
+            },
+          }
+        );
+        if (!finished) throw new Error("The connection closed before the answer finished.");
+      } catch (err) {
+        if (controller.signal.aborted) {
+          // Stopped by the user: the backend saved the partial answer.
+          setLive(null);
+          setLiveText("");
+          setTimeout(reloadChat, 400);
+          return;
+        }
+        const message = err.response?.data?.msg || err.message || "Something went wrong.";
+        setLive((l) => (l ? { ...l, error: message } : l));
+      } finally {
+        if (abortRef.current === controller) abortRef.current = null;
+      }
     },
-    [handleMessageSend, userId, chatId]
+    [chatId, reloadChat]
   );
+
+  const stop = useCallback(() => abortRef.current?.abort(), []);
+
+  // Esc stops generating.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape" && abortRef.current) stop();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stop]);
+
+  // Leaving the chat doesn't stop the answer: the server finishes and saves it.
+  // This page is keyed by chatId (see ChatRoute), so a finished answer can
+  // never be written into another chat's view once we've unmounted.
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Send the message typed on the dashboard once this new chat opens.
   useEffect(() => {
@@ -134,49 +228,90 @@ const ChatPage = ({ authUser }) => {
     if (!pending || pending.chatId !== chatId || handledPending.current === chatId) return;
     handledPending.current = chatId;
     useAiChatStore.getState().setPendingMessage(null);
-    const preview = pending.file ? URL.createObjectURL(pending.file) : undefined;
-    sendMessage({ text: pending.text, file: pending.file, preview });
-  }, [chatId, sendMessage]);
+    const image = pending.file ? URL.createObjectURL(pending.file) : undefined;
+    run({ mode: "send", prompt: pending.text, image, file: pending.file }, { mode: "send", prompt: pending.text });
+  }, [chatId, run]);
 
-  // Keep the newest message in view.
+  // Saved messages with their history index (`idx`, used by edit/delete).
+  const saved = useMemo(
+    () => chats.map((msg, idx) => ({ ...msg, idx })).filter((msg) => !isPlaceholder(msg)),
+    [chats]
+  );
+
+  // What's on screen: saved messages adjusted for the exchange in progress.
+  const visible = useMemo(() => {
+    if (!live) return saved;
+    let base = saved;
+    if (live.mode === "edit") base = saved.filter((m) => m.idx < live.editIndex);
+    if (live.mode === "regenerate") {
+      const lastModel = [...saved].reverse().find((m) => !m.fromUser);
+      base = saved.filter((m) => m !== lastModel);
+    }
+    const extra = live.mode === "regenerate" ? [] : [{ fromUser: true, text: live.prompt, image: live.image, idx: null, pending: true }];
+    return [...base, ...extra];
+  }, [saved, live]);
+
+  const lastAnswerIdx = useMemo(() => [...saved].reverse().find((m) => !m.fromUser)?.idx, [saved]);
+
+  // Keep the newest text in view while the user is at the bottom.
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages.length, sending, editingLoading]);
+    if (el && atBottom) el.scrollTop = el.scrollHeight;
+  }, [visible.length, liveText, live, atBottom]);
 
-  const handleSend = async () => {
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (el) setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  };
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  };
+
+  const handleSend = () => {
     const text = input.trim();
-    if ((!text && !attachment) || sending) return;
+    if ((!text && !attachment) || generating) return;
     const current = attachment;
     setInput("");
     setAttachment(null);
-    const ok = await sendMessage({ text, file: current?.file, preview: current?.preview });
-    if (!ok) {
-      // Give the user their message back so they can retry.
-      setInput(text);
-      setAttachment(current);
-    }
+    run({ mode: "send", prompt: text, image: current?.preview, file: current?.file }, { mode: "send", prompt: text });
+  };
+
+  const regenerate = () => {
+    if (generating) return;
+    run({ mode: "regenerate" }, { mode: "regenerate" });
+  };
+
+  const saveEdit = () => {
+    const text = editingText.trim();
+    if (!text || generating) return;
+    const index = editingIndex;
+    const original = saved.find((m) => m.idx === index);
+    setEditingIndex(null);
+    run({ mode: "edit", prompt: text, image: original?.image, editIndex: index }, { mode: "edit", prompt: text, editIndex: index });
+  };
+
+  const retry = () => {
+    if (!live) return;
+    const { body, ...rest } = live;
+    run({ ...rest, error: null }, body);
   };
 
   const handleCopy = async (msg) => {
     try {
-      if (msg.image && !msg.text) {
-        await copyImage(msg.image);
-        showToast("Copied", "Image copied to clipboard.", "success", 1500);
-      } else {
-        await navigator.clipboard.writeText(msg.text || "");
-        showToast("Copied", "Message copied to clipboard.", "success", 1500);
-      }
-    } catch (err) {
-      console.error("Copy failed:", err);
+      if (msg.image && !msg.text) await copyImage(msg.image);
+      else await navigator.clipboard.writeText(msg.text || "");
+      showToast("Copied", "", "success", 1200);
+    } catch {
       showToast("Error", "Couldn't copy to the clipboard.", "error");
     }
   };
 
-  const speakMessage = (text) => {
+  const speak = (text) => {
     if (!text || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text.replace(/```[\s\S]*?```/g, " code block "));
+    const utterance = new SpeechSynthesisUtterance(text.replace(/```[\s\S]*?```/g, " code block ").replace(/[#*_`>|]/g, ""));
     utterance.lang = "en-US";
     window.speechSynthesis.speak(utterance);
   };
@@ -187,29 +322,27 @@ const ChatPage = ({ authUser }) => {
     setDeletingIndex(null);
   };
 
-  const handleSaveEdit = async () => {
-    const text = editingText.trim();
-    if (!text) return;
-    try {
-      await editMessage({ userId, chatId, messageIndex: editingIndex, newText: text });
-      setEditingIndex(null);
-      setEditingText("");
-    } catch {
-      // useEditMessage already shows the error; keep the editor open.
-    }
-  };
+  const renderAssistant = (content, actions) => (
+    <Flex gap={3} align="flex-start" w="full">
+      <BotLogo boxSize="28px" flexShrink={0} mt={0.5} />
+      <Box flex={1} minW={0} fontSize={{ base: "sm", md: "md" }} pt={0.5}>
+        {content}
+        {actions}
+      </Box>
+    </Flex>
+  );
 
   return (
-    <Flex direction="column" h="100%">
-      <Box ref={scrollRef} flex={1} minH={0} overflowY="auto">
-        <Box maxW="820px" mx="auto" px={{ base: 3, sm: 4, md: 6 }} pt={{ base: 4, md: 8 }} pb={4}>
-          {isLoading && messages.length === 0 && (
-            <Flex justify="center" py={16}>
-              <Spinner color="accent" />
-            </Flex>
+    <Flex direction="column" h="100%" position="relative">
+      <ChatHeader chat={chatEntry} chatId={chatId} userId={userId} messages={saved} />
+
+      <Box ref={scrollRef} flex={1} minH={0} overflowY="auto" onScroll={onScroll}>
+        <Box maxW="780px" mx="auto" px={{ base: 3, sm: 4, md: 6 }} pt={{ base: 4, md: 8 }} pb={6}>
+          {isLoading && visible.length === 0 && (
+            <Flex justify="center" py={16}><Spinner color="accent" /></Flex>
           )}
 
-          {!isLoading && messages.length === 0 && !sending && (
+          {!isLoading && visible.length === 0 && !live && (
             <Flex direction="column" align="center" textAlign="center" py={16} gap={3} color="text.muted">
               <BotLogo boxSize="44px" />
               <Text fontSize="lg" fontWeight="semibold" color="text.default">Start the conversation</Text>
@@ -217,132 +350,136 @@ const ChatPage = ({ authUser }) => {
             </Flex>
           )}
 
-          {messages.map((msg, i) => {
+          {visible.map((msg, i) => {
+            const key = msg.idx ?? `pending-${i}`;
             const isEditing = msg.idx !== null && editingIndex === msg.idx;
-            return (
-              <Flex
-                key={msg.idx ?? `pending-${i}`}
-                role="group"
-                direction="column"
-                align={msg.fromUser ? "flex-end" : "flex-start"}
-                mb={5}
-              >
-                <Flex gap={3} align="flex-start" w="full" justify={msg.fromUser ? "flex-end" : "flex-start"}>
-                  {!msg.fromUser && <BotLogo boxSize="28px" flexShrink={0} mt={1} />}
 
+            if (msg.fromUser) {
+              return (
+                <Flex key={key} role="group" direction="column" align="flex-end" mb={6}>
                   <Box
-                    maxW={msg.fromUser ? { base: "88%", md: "75%" } : "calc(100% - 40px)"}
-                    minW={0}
+                    maxW={{ base: "88%", md: "75%" }}
                     w={isEditing ? "full" : undefined}
-                    bg={msg.fromUser ? "bubble.user" : "bubble.bot"}
-                    color={msg.fromUser ? "white" : "text.default"}
-                    px={4}
-                    py={2.5}
+                    bg={isEditing ? "transparent" : "bubble.user"}
+                    color="white"
+                    px={isEditing ? 0 : 4}
+                    py={isEditing ? 0 : 2.5}
                     borderRadius="2xl"
-                    borderTopRightRadius={msg.fromUser ? "sm" : "2xl"}
-                    borderTopLeftRadius={msg.fromUser ? "2xl" : "sm"}
                     fontSize={{ base: "sm", md: "md" }}
-                    opacity={msg.idx === null ? 0.85 : 1}
                   >
                     {isEditing ? (
-                      <Flex direction="column" gap={2} minW={{ base: "auto", md: "420px" }}>
+                      <Box bg="bg.surface" borderWidth="1px" borderColor="border.default" borderRadius="2xl" p={3}>
                         <Textarea
                           value={editingText}
                           onChange={(e) => setEditingText(e.target.value)}
-                          bg="bg.surface"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              saveEdit();
+                            }
+                          }}
+                          border="none"
+                          _focusVisible={{ boxShadow: "none" }}
                           color="text.default"
-                          borderRadius="lg"
                           fontSize="16px"
                           rows={3}
                           autoFocus
                         />
-                        <HStack justify="flex-end">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            color="white"
-                            _hover={{ bg: "whiteAlpha.200" }}
-                            onClick={() => setEditingIndex(null)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button size="sm" bg="white" color="blue.600" onClick={handleSaveEdit} isLoading={editingLoading}>
-                            Save & regenerate
-                          </Button>
+                        <HStack justify="flex-end" mt={2}>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingIndex(null)}>Cancel</Button>
+                          <Button size="sm" colorScheme="blue" onClick={saveEdit} isDisabled={!editingText.trim()}>Send</Button>
                         </HStack>
-                      </Flex>
+                      </Box>
                     ) : (
                       <>
                         {msg.image && (
-                          <Image
-                            src={msg.image}
-                            alt="Uploaded"
-                            borderRadius="lg"
-                            maxH={{ base: "220px", md: "300px" }}
-                            objectFit="contain"
-                            mb={msg.text ? 2 : 0}
-                          />
+                          <Image src={msg.image} alt="Uploaded" borderRadius="lg" maxH={{ base: "220px", md: "300px" }} objectFit="contain" mb={msg.text ? 2 : 0} />
                         )}
-                        <MessageContent text={msg.text} />
+                        {msg.text && <Text whiteSpace="pre-wrap" wordBreak="break-word">{msg.text}</Text>}
                       </>
                     )}
                   </Box>
+                  {msg.idx !== null && !isEditing && !live && (
+                    <HStack spacing={0} mt={1} opacity={0} transition="opacity 0.15s" _groupHover={{ opacity: 1 }} _focusWithin={{ opacity: 1 }} sx={{ "@media (hover: none)": { opacity: 1 } }}>
+                      <ActionButton label="Copy" icon={<FiCopy />} onClick={() => handleCopy(msg)} />
+                      {!msg.image && (
+                        <ActionButton label="Edit" icon={<FiEdit2 />} onClick={() => { setEditingIndex(msg.idx); setEditingText(msg.text || ""); }} />
+                      )}
+                      <ActionButton label="Delete" icon={<FiTrash2 />} isLoading={deletingIndex === msg.idx} onClick={() => handleDelete(msg)} />
+                    </HStack>
+                  )}
                 </Flex>
+              );
+            }
 
-                {msg.idx !== null && !isEditing && (
-                  <HStack
-                    spacing={0}
-                    mt={1}
-                    pl={msg.fromUser ? 0 : "40px"}
-                    opacity={0}
-                    transition="opacity 0.15s"
-                    _groupHover={{ opacity: 1 }}
-                    _focusWithin={{ opacity: 1 }}
-                    sx={{ "@media (hover: none)": { opacity: 1 } }}
-                  >
-                    <ActionButton label="Copy" icon={<FiCopy />} onClick={() => handleCopy(msg)} />
-                    {msg.text && <ActionButton label="Read aloud" icon={<FiVolume2 />} onClick={() => speakMessage(msg.text)} />}
-                    {msg.fromUser && !msg.image && (
-                      <ActionButton
-                        label="Edit"
-                        icon={<FiEdit2 />}
-                        onClick={() => {
-                          setEditingIndex(msg.idx);
-                          setEditingText(msg.text || "");
-                        }}
-                      />
-                    )}
-                    <ActionButton
-                      label="Delete"
-                      icon={<FiTrash2 />}
-                      isLoading={deletingIndex === msg.idx}
-                      onClick={() => handleDelete(msg)}
-                    />
-                  </HStack>
+            return (
+              <Box key={key} role="group" mb={6}>
+                {renderAssistant(
+                  <MessageContent text={msg.text} />,
+                  !live && (
+                    <HStack spacing={0} mt={1} ml={-1.5} opacity={msg.idx === lastAnswerIdx ? 1 : 0} transition="opacity 0.15s" _groupHover={{ opacity: 1 }} _focusWithin={{ opacity: 1 }} sx={{ "@media (hover: none)": { opacity: 1 } }}>
+                      <ActionButton label="Copy" icon={<FiCopy />} onClick={() => handleCopy(msg)} />
+                      <ActionButton label="Read aloud" icon={<FiVolume2 />} onClick={() => speak(msg.text)} />
+                      {msg.idx === lastAnswerIdx && <ActionButton label="Regenerate" icon={<FiRefreshCw />} onClick={regenerate} />}
+                      <ActionButton label="Delete" icon={<FiTrash2 />} isLoading={deletingIndex === msg.idx} onClick={() => handleDelete(msg)} />
+                    </HStack>
+                  )
                 )}
-              </Flex>
+              </Box>
             );
           })}
 
-          {(sending || editingLoading) && <TypingIndicator />}
+          {live && (
+            <Box mb={6}>
+              {renderAssistant(
+                live.error ? (
+                  <Flex direction="column" align="flex-start" gap={3} p={3} borderRadius="lg" borderWidth="1px" borderColor="red.300" bg="bg.subtle">
+                    <HStack color="red.400" fontSize="sm" align="flex-start">
+                      <Box pt={0.5}><FiAlertTriangle /></Box>
+                      <Text>{live.error}</Text>
+                    </HStack>
+                    <Button size="sm" leftIcon={<FiRefreshCw />} onClick={retry}>Retry</Button>
+                  </Flex>
+                ) : liveText ? (
+                  <MessageContent text={liveText} />
+                ) : (
+                  <ThinkingDots />
+                )
+              )}
+            </Box>
+          )}
         </Box>
       </Box>
 
-      <Box
-        flexShrink={0}
-        px={{ base: 3, sm: 4, md: 6 }}
-        pt={2}
-        pb="max(12px, env(safe-area-inset-bottom))"
-        bg="bg.canvas"
-      >
-        <Box maxW="820px" mx="auto">
+      {!atBottom && (
+        <IconButton
+          icon={<FiArrowDown />}
+          aria-label="Scroll to latest"
+          isRound
+          size="sm"
+          position="absolute"
+          left="50%"
+          transform="translateX(-50%)"
+          bottom={{ base: "120px", sm: "140px" }}
+          zIndex={2}
+          bg="bg.surface"
+          borderWidth="1px"
+          borderColor="border.default"
+          boxShadow="md"
+          onClick={scrollToBottom}
+        />
+      )}
+
+      <Box flexShrink={0} px={{ base: 3, sm: 4, md: 6 }} pt={2} pb="max(12px, env(safe-area-inset-bottom))" bg="bg.canvas">
+        <Box maxW="780px" mx="auto">
           <Composer
             value={input}
             onChange={setInput}
             onSend={handleSend}
             attachment={attachment}
             onAttach={setAttachment}
-            isSending={sending}
+            isGenerating={generating}
+            onStop={stop}
           />
           <Text fontSize="xs" color="text.muted" textAlign="center" mt={2} display={{ base: "none", sm: "block" }}>
             GH-GPT can make mistakes. Check important info.
@@ -353,4 +490,8 @@ const ChatPage = ({ authUser }) => {
   );
 };
 
-export default ChatPage;
+// One ChatPage instance per chat, so switching chats starts from a clean state.
+export default function ChatRoute(props) {
+  const { chatId } = useParams();
+  return <ChatPage key={chatId} {...props} />;
+}

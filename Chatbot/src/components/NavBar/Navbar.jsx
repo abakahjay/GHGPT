@@ -1,4 +1,5 @@
 import { Avatar, Button, Flex, HStack } from "@chakra-ui/react";
+import { FiDownload } from "react-icons/fi";
 import { Link as RouterLink } from "react-router-dom";
 import Brand from "../ui/Brand.jsx";
 import ColorModeToggle from "../ui/ColorModeToggle.jsx";
@@ -28,6 +29,9 @@ const Navbar = ({ authUser }) => {
 			<Brand size="32px" fontSize={{ base: "lg", md: "xl" }} />
 
 			<HStack spacing={{ base: 1, md: 3 }}>
+				<Button as={RouterLink} to="/install" variant="ghost" size="sm" leftIcon={<FiDownload />} display={{ base: "none", md: "inline-flex" }}>
+					Get the app
+				</Button>
 				<ColorModeToggle />
 				{user ? (
 					<>

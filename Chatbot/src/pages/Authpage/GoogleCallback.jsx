@@ -4,6 +4,7 @@ import { Flex, Spinner, Text } from "@chakra-ui/react";
 import useAuthStore from "../../store/useAuthStore";
 import useShowToast from "../../hooks/useShowToast";
 import { fetchCurrentUser } from "../../utils/auth";
+import { sendAuthEvent } from "../../utils/ghgptApi";
 
 // The backend's /auth/google/callback redirects here with ?token=... after
 // a successful Google sign-in. This page's whole job is to:
@@ -43,6 +44,7 @@ export default function GoogleCallback() {
             try {
                 const user = await fetchCurrentUser(token);
                 setSession({ user, token });
+                sendAuthEvent("login", token); // first use of GH-GPT gets the welcome email
                 showToast("Success", "Logged in with Google", "success");
                 navigate("/dashboard", { replace: true });
             } catch (error) {

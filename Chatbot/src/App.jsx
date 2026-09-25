@@ -15,6 +15,7 @@ import GoogleCallback from "./pages/Authpage/GoogleCallback.jsx";
 // Loaded on demand: the chat page pulls in the syntax highlighter.
 const ChatPage = lazy(() => import("./routes/chatPage/Chatpage1.jsx"));
 const Control = lazy(() => import("./pages/ControlElectrical/Control.jsx"));
+const InstallPage = lazy(() => import("./pages/Install/InstallPage.jsx"));
 
 // Wraps a page in the app shell and redirects to /auth when logged out.
 // Reading the store here (instead of closing over props) lets the router be
@@ -58,6 +59,7 @@ const router = createBrowserRouter([
     { path: '/chat/:chatId', element: <Protected page={ChatPage} /> },
     { path: '/history', element: <Protected page={MessagesPage} /> },
     { path: '/control', element: <PublicPage page={Control} /> },
+    { path: '/install', element: <PublicPage page={InstallPage} /> },
     { path: '/:username', element: <Protected page={ProfilePage} /> },
     { path: '*', element: <Navigate to="/" replace /> },
 ]);

@@ -38,11 +38,10 @@ const useAiChatActions = () => {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      const userChats = data.userChats?.chats || [];
       const savedChat = data.savedChat;
-
-      setUserChats(userChats);
       setChats(formatHistory(savedChat.history));
+      // The response's userChats is read before the new chat is added, so reload the list.
+      fetchUserChats(userId, { silent: true });
 
       return savedChat;
     } catch (err) {

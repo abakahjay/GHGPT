@@ -1,6 +1,7 @@
 import useAuthStore from "../store/useAuthStore";
 import API from "../utils/api";
 import { fetchCurrentUser } from "../utils/auth";
+import { sendAuthEvent } from "../utils/ghgptApi";
 import useShowToast from "./useShowToast";
 
 const useLogin = () => {
@@ -20,6 +21,7 @@ const useLogin = () => {
             const { data } = await API.post("/api/v1/auth/login", { email, password });
             const user = await fetchCurrentUser(data.token);
             setSession({ user, token: data.token });
+            sendAuthEvent("login", data.token);
             setError(null);
             showToast("Success", "Login successful", "success");
         } catch (err) {
