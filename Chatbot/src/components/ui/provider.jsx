@@ -1,12 +1,7 @@
-'use client'
+import { ChakraProvider } from '@chakra-ui/react'
+import theme from '../../theme'
 
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react'
-import { ColorModeProvider } from './color-mode'
-
-export function Provider(props) {
-  return (
-    <ChakraProvider value={defaultSystem}>
-      <ColorModeProvider {...props} />
-    </ChakraProvider>
-  )
+// Same provider setup as main.jsx, for tests or isolated renders.
+export function Provider({ children }) {
+  return <ChakraProvider theme={theme}>{children}</ChakraProvider>
 }

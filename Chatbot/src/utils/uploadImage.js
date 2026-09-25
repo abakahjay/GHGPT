@@ -1,30 +1,23 @@
 import useShowToast from "../hooks/useShowToast";
 import API from "./api";
 
+// Uploads a new profile picture and resolves to { pictureId }.
+export const useUpdatePic = () => {
+    const showToast = useShowToast();
 
-export const useUpdatePic=()=>{
-    const updateProfileImage=async(selectedFile,tokens)=>{
-        const showToast = useShowToast()
-        const file=selectedFile;
+    const updateProfileImage = async (selectedFile) => {
         const formDatas = new FormData();
-        formDatas.append("profile_pictures", file);
-        console.log(formDatas.get("profile_pictures"));
-    
-        // Upload the image
-        const response=await API.patch("/api/v1/uploadFiles/upload-profile-pic", {
-            headers: {
-                Authorization: `Bearer ${tokens}`
-            },
-            body: formDatas,
-        })
-        if (!response.ok) {
-            showToast("Error uploading profile picture",'','error')
-            throw new Error('Failed to Update image');
+        formDatas.append("profile_pictures", selectedFile);
+        try {
+            const { data } = await API.patch("/api/v1/uploadFiles/upload-profile-pic", formDatas, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            return { pictureId: data.fileId };
+        } catch (error) {
+            showToast("Error uploading profile picture", "", "error");
+            throw new Error("Failed to update image", { cause: error });
         }
-        const {data}=response
-        console.log(data.fileId)
-        return {pictureId:data.fileId}
-    }
-    return {updateProfileImage}
+    };
 
-}
+    return { updateProfileImage };
+};

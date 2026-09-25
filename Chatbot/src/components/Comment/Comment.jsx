@@ -1,20 +1,14 @@
 import { Avatar, Flex, Skeleton, SkeletonCircle, Text } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { timeAgo } from "../../utils/timeAgo";
 import { useGetUserById } from "../../hooks/useGetUserById";
-import { ProfileUrl } from "../../utils/imageUrl";
 export default function Comment({comment}) {
 
   const {
     isLoading,
     userProfile,
     profileImageUrl, // Return the profile image URL
-    imageLoading, // Return the image loading state
-    imageError, // Return any errors related to the image
-    setUserProfile,
   }= useGetUserById(comment.user)
-  let url =ProfileUrl(userProfile?.profile_picture_id);
   // let url =userProfile?.profile_picture_id?ProfileUrl(userProfile?.profile_picture_id):''
 
   // userProfile&&console.log(userProfile)

@@ -36,7 +36,7 @@ const useGetUserPosts = () => {
         return ()=>{//This is a cleanup function
             controller.abort();
         }
-	}, [userProfile]);
+	}, [userProfile, setPosts, showToast]);
 
 	return { isLoading, posts };
 };

@@ -19,17 +19,13 @@ const useLikePost = (post) => {
 
 		try {
 			if(!isLiked){
-				const response =await API.patch(`/api/v1/posts/${post?._id}/like`,{
+				await API.patch(`/api/v1/posts/${post?._id}/like`,{
 					userId: authUser?._id,
 				})
-				const dta = response.data
-				// console.log(dta)
 			}else {
-				const response =await API.patch(`/api/v1/posts/${post?._id}/unlike`,{
+				await API.patch(`/api/v1/posts/${post?._id}/unlike`,{
 					userId: authUser?._id,
 				})
-				const dta = response.data
-				// console.log(dta)
 			}
 			setIsLiked(!isLiked);
 

@@ -28,7 +28,6 @@ const useGetFeedPosts = () => {
         // console.log(response.data)
         const posts = response.data.posts
         // console.log(posts)
-				const feedPosts = [];
 
 				setPosts(posts);
 			} catch (error) {

@@ -3,7 +3,7 @@ import ProfilePost from "./ProfilePost";
 import useGetUserPosts from "../../hooks/useGetUserPosts";
 
 
-const ProfilePosts = ({ user }) => {
+const ProfilePosts = () => {
 	const { isLoading, posts } = useGetUserPosts()
 	// let isLoading= !true;
 	// posts[0]&&console.log(posts)

@@ -24,7 +24,6 @@ import { ProfileUrl } from "../../utils/imageUrl";
 import useProfileStore from "../../store/userProfileStore";
 import useAuthStore from "../../store/useAuthStore";
 import useShowToast from "../../hooks/useShowToast";
-import usePostStore from "../../store/usePostStore";
 import API from "../../utils/api";
 import { useState } from "react";
 

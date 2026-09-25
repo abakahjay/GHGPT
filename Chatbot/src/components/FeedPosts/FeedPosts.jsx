@@ -1,12 +1,10 @@
 import { Container,Flex, Skeleton, SkeletonCircle, VStack,Box, Text } from "@chakra-ui/react"
 import FeedPost from "./FeedPost"
-import { useEffect, useState } from "react"
 import useGetFeedPosts from "../../hooks/useGetFeedPosts"
 
-export default function FeedPosts({authUser}) {
+export default function FeedPosts() {
     const { isLoading, posts }=useGetFeedPosts()
     // posts[0]&& console.log(posts)
-    const user=authUser.user?authUser.user:authUser
     // console.log(user)
     return (
         <Container maxW={'container.sm'} py={10} px={2}>

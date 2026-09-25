@@ -1,13 +1,9 @@
-import { useState } from "react";
-import useAiChatStore from "../store/useAiChatStore";
-import useShowToast from "./useShowToast";
+import useAiChatActions from "./useAiChatActions";
 
-const apiUrl = import.meta.env.VITE_API_URL;
-
+// Deleting a chat lives in useAiChatActions; this keeps a focused import path.
 const useDeleteChat = () => {
-  return (
-    <div>useDeleteChat</div>
-  )
-}
+  const { removeUserChat, isLoading } = useAiChatActions();
+  return { deleteChat: removeUserChat, isLoading };
+};
 
-export default useDeleteChat
+export default useDeleteChat;

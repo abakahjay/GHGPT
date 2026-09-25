@@ -1,11 +1,10 @@
 import { Avatar, AvatarGroup, Button, Flex, Text, VStack, useDisclosure } from "@chakra-ui/react";
-import { useEffect, useState ,useRef} from "react";
 import EditProfile from "./EditProfile";
 import { ProfileUrl } from "../../utils/imageUrl";
 import useAuthStore from "../../store/useAuthStore";
 import useFollowUser from "../../hooks/useFollowUser";
 
-export default function ProfileHeader({authUser,onLogout,username,owner}) {
+export default function ProfileHeader({authUser,username,owner}) {
       const user=authUser.user?authUser.user:authUser
       const url =user.profile_picture_id?ProfileUrl(user.profile_picture_id):'';
       const UseAuth = useAuthStore((state) => state.user);

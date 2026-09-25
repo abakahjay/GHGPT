@@ -24,7 +24,6 @@ import useShowToast from "../../hooks/useShowToast";
 import useAuthStore from "../../store/useAuthStore";
 import usePostStore from "../../store/usePostStore";
 import useProfileStore from "../../store/userProfileStore";
-import { useLocation } from "react-router-dom";
 
 const CreatePost = () => {
 	const { isOpen, onOpen, onClose } = useDisclosure();
@@ -127,21 +126,13 @@ function useCreatePost() {
 	const posts = usePostStore((state) => state.posts);
 	
 	const addPost = useProfileStore((state) => state.addPost);
-	const { userProfile, setUserProfile } = useProfileStore();
-	const { pathname } = useLocation();
+	const { userProfile } = useProfileStore();
 	const apiUrl = import.meta.env.VITE_API_URL
 	// console.log(authUser._id)
 	const handleCreatePost = async (formDatas2,selectedFile, caption) => {
 		if (isLoading) return;
 		if (!selectedFile) throw new Error("Please select an image");
 		setIsLoading(true);
-		const newPost = {
-			caption: caption,
-			likes: [],
-			comments: [],
-			createdAt: Date.now(),
-			createdBy: authUser._id,
-		};
 
 		try {
 			formDatas2.append('caption',caption)

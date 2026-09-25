@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Box, Button, Input, Text, VStack, Flex, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, useDisclosure } from "@chakra-ui/react";
+import { useState } from "react";
+import { Box, Button, Input, VStack, Flex, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, useDisclosure } from "@chakra-ui/react";
 
 export default function ChatModal({ username }) {
     const { isOpen, onOpen, onClose } = useDisclosure();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import usePostStore from '../../store/usePostStore';
 
 const CreatePost = () => {

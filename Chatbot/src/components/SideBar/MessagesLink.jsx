@@ -1,5 +1,4 @@
 import { Box, Link, Tooltip } from "@chakra-ui/react";
-import { AiFillHome } from "react-icons/ai";
 import { Link as RouterLink } from "react-router-dom";
 import { MessagesLogo } from "../../assets/constants";
 

@@ -24,7 +24,7 @@ Testing setup is incomplete. `vitest`, `jsdom`, `@testing-library/react` and `@t
 
 `src/utils/config.js` exports `API_URL`. It uses `VITE_API_URL` when that is set. Otherwise dev falls back to `http://localhost:7004` (FullBackendd's default port) and production builds fall back to `https://fullbackendd.onrender.com`. Always import `API_URL` instead of reading `import.meta.env` directly. See `.env.example`.
 
-The app uses client-side routing, so the static host must rewrite every path to `/index.html`. `vercel.json` does this for Vercel. On Render, set it as a rewrite rule in the dashboard.
+The app uses client-side routing, so the static host must rewrite every path to `/index.html`. `vercel.json` does this for Vercel. The Render static site (https://gh-gpt.onrender.com) has a dashboard rewrite rule `/*` → `/index.html`.
 
 ## Architecture
 
@@ -46,11 +46,14 @@ The app uses client-side routing, so the static host must rewrite every path to 
 
 Shared pieces are in `components/ui/` (`Brand`, `ColorModeToggle`), `components/Chat/` (`Composer`, `MessageContent`) and `components/SideBar/NavItem.jsx`. Set text inputs to `fontSize="16px"` so iOS doesn't zoom.
 
-## Dead or legacy code
+## Legacy code
 
-None of these files are imported:
-- `src/lib/gemini.js` and `src/firebase/firebase.js`
-- `hooks/useCreateChat.js`, `utils/uploadImage.js`, `components/ChatApp/ChatAppDemo.jsx` and `components/test/Try1.jsx` (these don't lint)
-- `components/ui/{color-mode,provider,toaster,tooltip}.jsx`, which are Chakra v3 snippets and won't work with the installed v2
+Nothing imports these files:
+- `src/lib/gemini.js` (its `@google/generative-ai` package isn't installed) and `src/firebase/firebase.js`
+- `components/ChatApp/ChatAppDemo.jsx` (socket.io demo) and `components/test/Try1.jsx`
+- the feed/post/comment/follow components from the Instagram clone
+- `routes/Authpage/*`, which only re-exports `pages/Authpage/*`
+- `components/ui/{color-mode,provider,toaster,tooltip}.jsx`, which are thin Chakra v2 wrappers
+- `hooks/useCreateChat.js` and `hooks/useDeleteChat.js`, which delegate to `useAiChatActions`
 
-The feed/post/comment/follow components come from the Instagram clone and are not reachable from any route.
+`npm run lint` is clean. Keep it that way.

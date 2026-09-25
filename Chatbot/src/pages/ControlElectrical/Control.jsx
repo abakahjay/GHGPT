@@ -8,7 +8,6 @@ import {
     Switch,
     VStack,
     useToast,
-    Divider,
     HStack,
     Badge,
     Spinner,
@@ -74,7 +73,7 @@ export default function Control({ authUser }) {
 
             // Refresh logs
             fetchLogs();
-        } catch (err) {
+        } catch {
             toast({
                 title: "Error",
                 description: "Failed to update GPIO state",

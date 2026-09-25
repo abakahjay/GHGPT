@@ -28,7 +28,7 @@ const ChatApp = ({ userId, recipientId }) => {
         });
 
         socket.on('typing', (data) => {
-            if (data.receiver === currentUser && data.sender !== currentUser) {
+            if (data.receiver === userId && data.sender === recipientId) {
                 setIsTyping(true);
                 setTimeout(() => setIsTyping(false), 1000); // Hide typing after 1 second
             }
@@ -103,6 +103,9 @@ const ChatApp = ({ userId, recipientId }) => {
                     </div>
                 ))}
             </div>
+            {isTyping && (
+                <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>typing…</div>
+            )}
             <div style={{ display: 'flex', gap: '10px' }}>
                 <input
                     type="text"

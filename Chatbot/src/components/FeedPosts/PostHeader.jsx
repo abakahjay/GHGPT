@@ -2,13 +2,11 @@ import { Avatar, Box, Button, Flex, Skeleton, SkeletonCircle } from "@chakra-ui/
 import { Link } from "react-router-dom";
 import useFollowUser from "../../hooks/useFollowUser";
 import { timeAgo } from "../../utils/timeAgo";
-import { ProfileUrl } from "../../utils/imageUrl";
 import useAuthStore from "../../store/useAuthStore";
 
-const PostHeader = ({ post, creatorProfile,profileImageUrl,imageLoading }) => {
+const PostHeader = ({ post, creatorProfile,profileImageUrl }) => {
         const { handleFollowUser, isFollowing, isUpdating } = useFollowUser(post.createdBy);
         const UseAuth = useAuthStore((state) => state.user);
-        let url =ProfileUrl(creatorProfile?.profile_picture_id)//||''
         let visitingAnotherProfileAndAuth = UseAuth &&creatorProfile && creatorProfile.username !== UseAuth.username
         // UseAuth &&creatorProfile && creatorProfile.username&&console.log(visitingAnotherProfileAndAuth)
 
