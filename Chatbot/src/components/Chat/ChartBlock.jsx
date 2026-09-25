@@ -27,10 +27,15 @@ function parseSpec(source) {
         const spec = JSON.parse(source);
         if (!Array.isArray(spec.data) || spec.data.length === 0) return null;
         const xKey = spec.xKey || Object.keys(spec.data[0]).find((k) => typeof spec.data[0][k] === "string") || "name";
-        const series = (Array.isArray(spec.series) && spec.series.length
-            ? spec.series
-            : Object.keys(spec.data[0]).filter((k) => k !== xKey && typeof spec.data[0][k] === "number")
+        // Keep only series that name real fields; models sometimes list the values instead.
+        const named = Array.isArray(spec.series)
+            ? spec.series.filter((k) => typeof k === "string" && k !== xKey && k in spec.data[0])
+            : [];
+        const series = (named.length
+            ? named
+            : Object.keys(spec.data[0]).filter((k) => k !== xKey && !Number.isNaN(Number(spec.data[0][k])))
         ).slice(0, 8);
+        if (!series.length) return null;
         const data = spec.data.map((row) => {
             const out = { ...row };
             series.forEach((k) => {
