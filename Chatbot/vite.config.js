@@ -11,6 +11,10 @@ export default defineConfig({
       // Registered from main.jsx via virtual:pwa-register.
       injectRegister: false,
       workbox: {
+        // Set explicitly: the plugin only adds these itself when injectRegister
+        // is 'auto', and without them a new deploy waits until every tab closes.
+        skipWaiting: true,
+        clientsClaim: true,
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
       },
