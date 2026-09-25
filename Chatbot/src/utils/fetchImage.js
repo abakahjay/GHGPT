@@ -1,5 +1,6 @@
+import { API_URL } from "./config";
 export const fetchImage = async (imageId) => {
-    const apiUrl = import.meta.env.VITE_API_URL
+    const apiUrl = API_URL
     const response = await fetch(`${apiUrl}/api/v1/posts/image/${imageId}`);
     if (!response.ok) {
         throw new Error('Failed to fetch image');

@@ -1,73 +1,55 @@
-import { Link,Box, chakra, Flex, Image, Text, VStack } from "@chakra-ui/react";
-import { useState } from "react";
+import { Box, Button, Flex, Heading, Text, VStack } from "@chakra-ui/react";
+import { useSearchParams } from "react-router-dom";
 import Login from "./Login";
 import Signup from "./Signup";
 import GoogleAuth from "./GoogleAuth";
-import { ChatGptLogo1 } from "../../assets/constants";
-import { Link as RouterLink } from "react-router-dom";
-//Everything is in pixels
+import useAuthStore from "../../store/useAuthStore";
 
 export function AuthForm({ onAuth }) {
-    const [isLogin, setIsLogin] = useState(true);
-    const ChatGptLogos = chakra(ChatGptLogo1)
+    const [params, setParams] = useSearchParams();
+    const isLogin = params.get("mode") !== "signup";
+    const setError = useAuthStore((state) => state.setError);
+    const toggle = () => {
+        setError(null);
+        setParams(isLogin ? { mode: "signup" } : {}, { replace: true });
+    };
 
     return (
-        <>
-            <Box border={"1px solid gray"} borderRadius={4} padding={5}>
-                <VStack spacing={4}>
-                    <Flex alignItems={'center'} justifyContent={'center'}  padding='25px'>
-                        <Link
-                            to={"/"}
-                            display={"flex"}
-                            as={RouterLink}
-                            cursor={'pointer'}
-                            alignItems={"center"}
-                            justifyContent={"center"}
-                            whiteSpace="nowrap"
-                            gap={2}
-                        >
-                            <ChatGptLogos boxSize='48px' />
-                            <Text
-                                cursor="pointer"
-                                
-                                fontSize="2xl"
-                                whiteSpace="nowrap"
-                                bgGradient="linear(to-r, #ce1126, #fcd116, #007940)" // Red → Yellow → Green
-                                bgClip="text"
-                                fontWeight="bold"
-                                >
-                                GH-GPT
-                            </Text>
-                        </Link>
+        <Box
+            bg="bg.surface"
+            borderWidth="1px"
+            borderColor="border.default"
+            borderRadius="2xl"
+            boxShadow="lg"
+            p={{ base: 6, sm: 8 }}
+        >
+            <VStack spacing={1} mb={6} textAlign="center">
+                <Heading size="lg" letterSpacing="-0.02em">
+                    {isLogin ? "Welcome back" : "Create your account"}
+                </Heading>
+                <Text color="text.muted" fontSize="sm">
+                    {isLogin ? "Log in to continue to GH-GPT" : "Start chatting with GH-GPT for free"}
+                </Text>
+            </VStack>
 
-                    </Flex>
+            {isLogin ? <Login onAuth={onAuth} /> : <Signup onAuth={onAuth} />}
 
-                    {isLogin ? <Login onAuth={onAuth} /> : <Signup onAuth={onAuth} />}
+            <Flex align="center" gap={3} my={5}>
+                <Box flex={1} h="1px" bg="border.default" />
+                <Text fontSize="xs" color="text.muted" fontWeight="semibold">OR</Text>
+                <Box flex={1} h="1px" bg="border.default" />
+            </Flex>
 
-                    {/* ---------------- OR -------------- */}
-                    <Flex alignItems={"center"} justifyContent={"center"} my={4} gap={1} w={"full"}>
-                        <Box flex={2} h={"1px"} bg={"gray.400"} />
-                        <Text mx={1} color={"white"}>
-                            OR
-                        </Text>
-                        <Box flex={2} h={"1px"} bg={"gray.400"} />
-                    </Flex>
+            <GoogleAuth prefix={isLogin ? "Continue" : "Sign up"} />
 
-                    <GoogleAuth prefix={isLogin ? "Log in" : "Sign up"} />
-                </VStack>
-            </Box>
-
-            <Box border={"1px solid gray"} borderRadius={4} padding={3}>
-                <Flex alignItems={"center"} justifyContent={"center"}>
-                    <Box mx={2} fontSize={14}>
-                        {isLogin ? "Don't have an account?" : "Already have an account?"}
-                    </Box>
-                    <Box onClick={() => setIsLogin(!isLogin)} color={"blue.500"} cursor={"pointer"}>
-                        {isLogin ? "Sign up" : "Log in"}
-                    </Box>
-                </Flex>
-            </Box>
-        </>
+            <Flex justify="center" align="center" gap={1} mt={6} fontSize="sm">
+                <Text color="text.muted">
+                    {isLogin ? "Don't have an account?" : "Already have an account?"}
+                </Text>
+                <Button variant="link" colorScheme="blue" size="sm" onClick={toggle}>
+                    {isLogin ? "Sign up" : "Log in"}
+                </Button>
+            </Flex>
+        </Box>
     );
-};
-
+}

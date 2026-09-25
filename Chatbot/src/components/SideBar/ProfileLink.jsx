@@ -1,38 +1,30 @@
-import { Avatar, Box, Link, Tooltip } from "@chakra-ui/react";
-import { Link as RouterLink } from "react-router-dom";
-import { ProfileUrl } from "../../utils/imageUrl";
-// import useAuthStore from "../../store/authStore";
-// let authUser;
-const ProfileLink = ({authUser,onLogout}) => {
-	const user=authUser.user?authUser.user:authUser
-	const url =user.profile_picture_id?ProfileUrl(user.profile_picture_id):'';
-	// const authUser = useAuthStore((state) => state.user);
+import { Avatar, Box, Text } from "@chakra-ui/react";
+import { useLocation } from "react-router-dom";
+import { useProfilePic } from "../../utils/imageUrl";
+import { unwrapUser } from "../../utils/auth";
+import NavItem from "./NavItem";
+
+const ProfileLink = ({ authUser, compact }) => {
+	const user = unwrapUser(authUser);
+	const url = useProfilePic(user);
+	const { pathname } = useLocation();
+	if (!user) return null;
+
+	const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
 
 	return (
-		<Tooltip
-			hasArrow
-			label={"Profile"}
-			placement='right'
-			ml={1}
-			openDelay={500}
-			display={{ base: "block", md: "none" }}
+		<NavItem
+			to={`/${user.username}`}
+			icon={<Avatar size="xs" src={url} name={fullName || user.username} />}
+			label="Profile"
+			compact={compact}
+			isActive={pathname === `/${user.username}`}
 		>
-			<Link
-				display={"flex"}
-				to={`/${user.username}`}
-				as={RouterLink}
-				alignItems={"center"}
-				gap={4}
-				_hover={{ bg: "whiteAlpha.400" }}
-				borderRadius={6}
-				p={2}
-				w={{ base: 10, md: "full" }}
-				justifyContent={{ base: "center", md: "flex-start" }}
-			>
-				<Avatar size={"sm"} src={url||''} />
-				<Box display={{ base: "none", md: "block" }}>{user.username}</Box>
-			</Link>
-		</Tooltip>
+			<Box lineHeight="short">
+				<Text noOfLines={1} fontWeight="semibold">{fullName || user.username}</Text>
+				<Text noOfLines={1} fontSize="xs" color="text.muted">@{user.username}</Text>
+			</Box>
+		</NavItem>
 	);
 };
 

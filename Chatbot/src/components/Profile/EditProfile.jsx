@@ -1,150 +1,98 @@
 import {
 	Avatar,
 	Button,
-	Center,
-	Flex,
 	FormControl,
 	FormLabel,
-	Heading,
 	Input,
 	Modal,
 	ModalBody,
 	ModalCloseButton,
 	ModalContent,
+	ModalFooter,
 	ModalHeader,
 	ModalOverlay,
+	SimpleGrid,
 	Stack,
+	Textarea,
 } from "@chakra-ui/react";
-import useAuthStore from "../../store/useAuthStore";
 import { useRef, useState } from "react";
-import useShowToast from "../../hooks/useShowToast";
-import { ProfileUrl } from "../../utils/imageUrl";
+import { useNavigate } from "react-router-dom";
+import useAuthStore from "../../store/useAuthStore";
+import { useProfilePic } from "../../utils/imageUrl";
+import { unwrapUser } from "../../utils/auth";
 import usePreviewImg from "../../hooks/usePreviewing";
 import useEditProfile from "../../hooks/useEditProfile";
-const tokens = JSON.parse(localStorage.getItem("user-info"))?.token;
 
-const EditProfile = ({ isOpen, onClose}) => {
-	const {editProfile, isUpdating }=useEditProfile()
-	// console.log(tokens)
-	const authUser = useAuthStore((state) => state.user);
-	const user=authUser.user?authUser.user:authUser
-	const username=user.username
-	const url =user.profile_picture_id?ProfileUrl(user.profile_picture_id):'';
+const EditProfile = ({ isOpen, onClose }) => {
+	const { editProfile, isUpdating } = useEditProfile();
+	const user = unwrapUser(useAuthStore((state) => state.user));
+	const url = useProfilePic(user);
 	const fileRef = useRef(null);
-	const {selectedFile, handleImageChange,formDatas, setSelectedFile }=usePreviewImg()
-	const showToast = useShowToast();
+	const navigate = useNavigate();
+	const { selectedFile, handleImageChange, formDatas, setSelectedFile } = usePreviewImg();
 
-	// console.log(selectedFile)
 	const [inputs, setInputs] = useState({
-		firstName: "",
-		lastName: "",
-		username: "",
-		bio: "",
+		firstName: user.firstName || "",
+		lastName: user.lastName || "",
+		username: user.username || "",
+		bio: user.bio || "",
 	});
+	const update = (field) => (e) => setInputs({ ...inputs, [field]: e.target.value });
+
 	const handleEditProfile = async () => {
-		try {
-			await editProfile(inputs, selectedFile,formDatas,username,tokens);
-			setSelectedFile(null);
-			onClose();
-		} catch (error) {
-			showToast("Error", error.message, "error");
-		}
+		const updated = await editProfile(inputs, selectedFile, formDatas, user.username);
+		if (!updated) return;
+		setSelectedFile(null);
+		onClose();
+		if (updated.username !== user.username) navigate(`/${updated.username}`, { replace: true });
 	};
+
 	return (
-		<>
-			<Modal isOpen={isOpen} onClose={onClose}>
-				<ModalOverlay />
-				<ModalContent bg={"black"} boxShadow={"xl"} border={"1px solid gray"} mx={3}>
-					<ModalHeader />
-					<ModalCloseButton />
-					<ModalBody>
-						{/* Container Flex */}
-						<Flex bg={"black"}>
-							<Stack spacing={4} w={"full"} maxW={"md"} bg={"black"} p={6} my={0}>
-								<Heading lineHeight={1.1} fontSize={{ base: "2xl", sm: "3xl" }}>
-									Edit Profile
-								</Heading>
-								<FormControl>
-									<Stack direction={["column", "row"]} spacing={6}>
-										<Center>
-											{selectedFile&&<Avatar size='xl' src={selectedFile} border={"2px solid white "} />}
-											{!selectedFile&&<Avatar size='xl'src={url} border={"2px solid white "} />}
-										</Center>
-										<Center w='full'>
-											<Button w='full' onClick={() => fileRef.current.click()}>
-												Edit Profile Picture
-											</Button>
-										</Center>
-										<Input type='file' hidden ref={fileRef} onChange={handleImageChange} />
-									</Stack>
-								</FormControl>
+		<Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", sm: "lg" }} scrollBehavior="inside">
+			<ModalOverlay backdropFilter="blur(4px)" />
+			<ModalContent borderWidth="1px" borderColor="border.default" mx={{ base: 0, sm: 4 }}>
+				<ModalHeader>Edit profile</ModalHeader>
+				<ModalCloseButton />
+				<ModalBody>
+					<Stack spacing={5}>
+						<Stack direction={{ base: "column", sm: "row" }} spacing={5} align="center">
+							<Avatar size="xl" src={selectedFile || url} name={user.username} />
+							<Button w={{ base: "full", sm: "auto" }} variant="outline" onClick={() => fileRef.current.click()}>
+								Change picture
+							</Button>
+							<Input type="file" accept="image/*" hidden ref={fileRef} onChange={handleImageChange} />
+						</Stack>
 
-								<FormControl>
-									<FormLabel fontSize={"sm"}>First Name</FormLabel>
-									<Input placeholder={"First Name"} size={"sm"} type={"text"}
-										value={inputs.firstName || authUser.firstName}
-										onChange={(e) => setInputs({ ...inputs, firstName: e.target.value })}
-									/>
-								</FormControl>
+						<SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+							<FormControl>
+								<FormLabel fontSize="sm">First name</FormLabel>
+								<Input value={inputs.firstName} onChange={update("firstName")} fontSize="16px" />
+							</FormControl>
+							<FormControl>
+								<FormLabel fontSize="sm">Last name</FormLabel>
+								<Input value={inputs.lastName} onChange={update("lastName")} fontSize="16px" />
+							</FormControl>
+						</SimpleGrid>
 
-								<FormControl>
-									<FormLabel fontSize={"sm"}>Last Name</FormLabel>
-									<Input placeholder={"Last Name"} size={"sm"} type={"text"}
-										value={inputs.lastName || authUser.lastName}
-										onChange={(e) => setInputs({ ...inputs, lastName: e.target.value })}
-									/>
-								</FormControl>
+						<FormControl>
+							<FormLabel fontSize="sm">Username</FormLabel>
+							<Input value={inputs.username} onChange={update("username")} fontSize="16px" />
+						</FormControl>
 
-								<FormControl>
-									<FormLabel fontSize={"sm"}>Username</FormLabel>
-									<Input
-										placeholder={"Username"}
-										size={"sm"}
-										type={"text"}
-										value={inputs.username || authUser.username}
-										onChange={(e) => setInputs({ ...inputs, username: e.target.value })}
-									/>
-								</FormControl>
-
-								<FormControl>
-									<FormLabel fontSize={"sm"}>Bio</FormLabel>
-									<Input placeholder={"Bio"}
-										size={"sm"}
-										type={"text"}
-										value={inputs.bio || authUser.bio}
-										onChange={(e) => setInputs({ ...inputs, bio: e.target.value })}
-									/>
-								</FormControl>
-
-								<Stack spacing={6} direction={["column", "row"]}>
-									<Button
-										bg={"red.400"}
-										color={"white"}
-										w='full'
-										size='sm'
-										_hover={{ bg: "red.500" }}
-										onClick={onClose}
-									>
-										Cancel
-									</Button>
-									<Button
-										bg={"blue.400"}
-										color={"white"}
-										size='sm'
-										w='full'
-										_hover={{ bg: "blue.500" }}
-										onClick={handleEditProfile}
-										isLoading={isUpdating}
-									>
-										Submit
-									</Button>
-								</Stack>
-							</Stack>
-						</Flex>
-					</ModalBody>
-				</ModalContent>
-			</Modal>
-		</>
+						<FormControl>
+							<FormLabel fontSize="sm">Bio</FormLabel>
+							<Textarea value={inputs.bio} onChange={update("bio")} rows={3} fontSize="16px" />
+						</FormControl>
+					</Stack>
+				</ModalBody>
+				<ModalFooter gap={3}>
+					<Button variant="ghost" onClick={onClose}>Cancel</Button>
+					<Button colorScheme="blue" onClick={handleEditProfile} isLoading={isUpdating}>
+						Save changes
+					</Button>
+				</ModalFooter>
+			</ModalContent>
+		</Modal>
 	);
 };
 

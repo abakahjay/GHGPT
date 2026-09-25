@@ -9,27 +9,22 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Amazon React',
-        short_name: 'Amazon',
-        description: 'Your app description',
-        theme_color: '#ffffff',
+        name: 'GH-GPT',
+        short_name: 'GH-GPT',
+        description: 'Your AI assistant for writing, coding and idea generation.',
+        theme_color: '#0b0a12',
+        background_color: '#0b0a12',
+        display: 'standalone',
+        start_url: '/dashboard',
         icons: [
-          {
-            src: 'icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: 'icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
+          { src: 'fav.svg', sizes: 'any', type: 'image/svg+xml' },
+          { src: 'bot.png', sizes: '1000x1000', type: 'image/png', purpose: 'any' },
         ],
       },
     }),
   ],
   server: {
-    port: 7009, // Replace 4000 with your desired port
+    port: 7009,
   },
   test: {//This is how we setup the tests
     environment: 'jsdom',

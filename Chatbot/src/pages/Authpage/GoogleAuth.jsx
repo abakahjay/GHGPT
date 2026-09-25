@@ -1,38 +1,25 @@
-import { Flex, Image, Text } from "@chakra-ui/react";
-import { useState } from "react";
-import useShowToast from "../../hooks/useShowToast";
-import useAuthStore from "../../store/useAuthStore"; // Import your Zustand store
+import { Button, Image } from "@chakra-ui/react";
+import { API_URL } from "../../utils/config";
 
+// The backend sends the token back to whatever redirect_uri we pass, so the
+// same code works on localhost and on the deployed site.
 const GoogleAuth = ({ prefix }) => {
-	const [error, setError] = useState(null);
-	const apiUrl = import.meta.env.VITE_API_URL
-	const showToast = useShowToast();
-	const loginUser = useAuthStore((state) => state.loginUser); // Get the login action from Zustand store
-
-	const handleGoogleAuth = async () => {
-		try {
-			// Redirect to your backend authentication endpoint
-			window.location.href = `${apiUrl}/api/v1/auth/google`;
-		} catch (err) {
-			setError(err.message);
-			showToast("Error", err.message, "error");
-		}
-	};
-
-	// Assuming after redirect, you handle the response from the backend and update Zustand store
-	const handleLoginResponse = (userData) => {
-		// Update Zustand state with the user information
-		loginUser(userData);
-		localStorage.setItem("user-info", JSON.stringify(userData)); // Optionally store user info in localStorage
+	const handleGoogleAuth = () => {
+		const redirectUri = `${window.location.origin}/auth/callback`;
+		window.location.href = `${API_URL}/api/v1/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
 	};
 
 	return (
-		<Flex alignItems={"center"} justifyContent={"center"} cursor={"pointer"} onClick={handleGoogleAuth}>
-			<Image src='/google.png' w={5} alt='Google logo' />
-			<Text mx='2' color={"blue.500"}>
-				{prefix} with Google
-			</Text>
-		</Flex>
+		<Button
+			w="full"
+			variant="outline"
+			borderColor="border.default"
+			leftIcon={<Image src='/google.png' w={5} alt='' />}
+			onClick={handleGoogleAuth}
+			fontWeight="medium"
+		>
+			{prefix} with Google
+		</Button>
 	);
 };
 

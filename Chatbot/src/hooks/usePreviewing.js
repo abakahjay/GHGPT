@@ -12,7 +12,7 @@ const usePreviewImg = () => {
 		const file = e.target.files[0];
 		if (file && file.type.startsWith("image/")) {
 			if (file.size > maxFileSizeInBytes) {
-				showToast("Error", "File size must be less than 2MB", "error");
+				showToast("Error", "File size must be less than 10MB", "error");
 				setSelectedFile(null);
 				return;
 			}

@@ -1,116 +1,60 @@
-// import { Button, Container, Flex, Image,chakra,Text } from "@chakra-ui/react";
-// import { Link } from "react-router-dom";
-// import { Link as RouterLink } from "react-router-dom";
-// import { ChatGptLogo1 } from '../../assets/constants.jsx'
-// const ChatGptLogo = chakra(ChatGptLogo1)
-
-
-// const Navbar = () => {
-// 	return (
-// 		<Container maxW={"container.lg"} my={4} mx={0} >
-// 			<Flex w={"full"} justifyContent={{ base: "center", sm: "space-between" }} alignItems={"center"}>
-// 				<Flex direction={"row"} gap={2} cursor={"pointer"} alignItems={"center"} display={{ base: "flex", md: "flex" }} >
-// 					<Link to={"/"} as={RouterLink} pl={2} display={{ base: "none", md: "block" }} cursor='pointer' >
-// 						<ChatGptLogo boxSize='40px' overflow="hidden" />
-// 					</Link>
-// 					<Link to={"/"} as={RouterLink} pl={2} display={{ base: "none", md: "block" }} cursor='pointer' >
-// 						<Text
-// 							cursor="pointer"
-// 							fontSize="2xl"
-// 							whiteSpace="nowrap"
-// 							bgGradient="linear(to-r, #ce1126, #fcd116, #007940)" // Red → Yellow → Green
-// 							bgClip="text"
-// 							fontWeight="bold"
-// 							mx={2}
-
-// 						>
-// 							GH-GPT
-// 						</Text>
-// 					</Link>
-// 				</Flex>
-// 				<Flex gap={4}>
-// 					<Link to='/auth'>
-// 						<Button colorScheme={"blue"} size={"sm"}>
-// 							Login
-// 						</Button>
-// 					</Link>
-// 					<Link to='/auth'>
-// 						<Button variant={"outline"} size={"sm"}>
-// 							Signup
-// 						</Button>
-// 					</Link>
-// 				</Flex>
-// 			</Flex>
-// 		</Container>
-// 	);
-// };
-
-// export default Navbar;
-import {
-	Button,
-	Container,
-	Box,
-	Flex,
-	chakra,
-	Text,
-} from "@chakra-ui/react";
+import { Avatar, Button, Flex, HStack } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
-import { ChatGptLogo1 } from '../../assets/constants.jsx';
-import ProfileLink from '../SideBar/ProfileLink'; // adjust path as needed
+import Brand from "../ui/Brand.jsx";
+import ColorModeToggle from "../ui/ColorModeToggle.jsx";
+import { unwrapUser } from "../../utils/auth";
+import { useProfilePic } from "../../utils/imageUrl";
 
-// Dummy authUser for testing. Replace with actual prop, context, or store.
-const ChatGptLogo = chakra(ChatGptLogo1);
-
-const Navbar = ({authUser} ) => {
-	const isLoggedIn = !!authUser?.user || !!authUser?.username;
+const Navbar = ({ authUser }) => {
+	const user = unwrapUser(authUser);
+	const avatar = useProfilePic(user);
 
 	return (
-		<Box w="100%" my={4} mx={0} px={4} >
-			<Flex
-				w="full"
-				mx='auto'
-				align='center'
-				justify='space-between'
-					// justifyContent={{ base: "center", sm: "space-between" }}
-					// alignItems="center"
-			>
-				{/* Logo + Title */}
-				<Flex direction="row" gap={2} alignItems="center">
-					<RouterLink to="/" pl={2}>
-						<ChatGptLogo boxSize="40px" />
-					</RouterLink>
+		<Flex
+			as="header"
+			position="sticky"
+			top={0}
+			zIndex={10}
+			w="100%"
+			h={{ base: "60px", md: "68px" }}
+			px={{ base: 4, md: 8 }}
+			align="center"
+			justify="space-between"
+			bg="bg.canvas"
+			backdropFilter="saturate(180%) blur(8px)"
+			borderBottom="1px solid"
+			borderColor="border.default"
+		>
+			<Brand size="32px" fontSize={{ base: "lg", md: "xl" }} />
 
-					<RouterLink to="/" pl={2}>
-						<Text
-							fontSize="2xl"
-							whiteSpace="nowrap"
-							bgGradient="linear(to-r, #ce1126, #fcd116, #007940)"
-							bgClip="text"
-							fontWeight="bold"
-							mx={2}
-						>
-							GH-GPT
-						</Text>
-					</RouterLink>
-				</Flex>
-
-				{/* Right side: Auth or Profile */}
-				<Flex gap={4} alignItems="center">
-					{isLoggedIn ? (
-						<ProfileLink authUser={authUser} onLogout={() => console.log("logout")} />
-					) : (
-						<>
-							<Button as={RouterLink} to="/auth" colorScheme="blue" size="sm">
-								Login
-							</Button>
-							<Button as={RouterLink} to="/auth" variant="outline" size="sm">
-								Signup
-							</Button>
-						</>
-					)}
-				</Flex>
-			</Flex>
-		</Box>
+			<HStack spacing={{ base: 1, md: 3 }}>
+				<ColorModeToggle />
+				{user ? (
+					<>
+						<Button as={RouterLink} to="/dashboard" colorScheme="blue" size="sm">
+							Open app
+						</Button>
+						<Avatar
+							as={RouterLink}
+							to={`/${user.username}`}
+							size="sm"
+							src={avatar}
+							name={[user.firstName, user.lastName].filter(Boolean).join(" ") || user.username}
+							display={{ base: "none", sm: "flex" }}
+						/>
+					</>
+				) : (
+					<>
+						<Button as={RouterLink} to="/auth" variant="ghost" size="sm">
+							Log in
+						</Button>
+						<Button as={RouterLink} to="/auth?mode=signup" colorScheme="blue" size="sm">
+							Sign up
+						</Button>
+					</>
+				)}
+			</HStack>
+		</Flex>
 	);
 };
 

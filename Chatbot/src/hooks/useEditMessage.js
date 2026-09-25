@@ -1,3 +1,4 @@
+import { formatMessage } from "../utils/formatMessage";
 import { useState } from "react";
 import API from "../utils/api";
 import useShowToast from "./useShowToast";
@@ -6,8 +7,7 @@ import useAiChatStore from "../store/useAiChatStore";
 const useEditMessage = () => {
     const [loading, setLoading] = useState(false);
     const showToast = useShowToast();
-    const apiUrl = import.meta.env.VITE_API_URL
-    const { setChats, setError } = useAiChatStore();
+    const { setChats } = useAiChatStore();
 
 
     const editMessage = async ({ userId, chatId, messageIndex, newText }) => {
@@ -46,22 +46,7 @@ const useEditMessage = () => {
             );
             // console.log(aiPatchRes.data.updatedChat)
 
-            const messages = (aiPatchRes?.data?.updatedChat?.history || []).map((msg) => {
-                if (msg.img) {
-                return {
-                    type: "image",
-                    image: `${apiUrl}/api/v1/ai/image/${msg.img}`,
-                    text: msg.parts?.[0]?.text || "",
-                    fromUser: msg.role === "user",
-                    fileId: msg.img,
-                };
-                }
-                return {
-                type: "text",
-                text: msg.parts?.[0]?.text || "",
-                fromUser: msg.role === "user",
-                };
-            });
+            const messages = (aiPatchRes?.data?.updatedChat?.history || []).map(formatMessage);
             setChats(messages);
             showToast("Updated", "Message and AI reply updated.", "success");
 

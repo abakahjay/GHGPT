@@ -23,7 +23,7 @@ const useFollowUser = (userId) => {
                 const datas=await API.patch(`/api/v1/users/${authUser._id}/unfollow`,{userId})
                 const frs=await datas.data
                 if(frs.error){
-                    throw new Error(fr.error)
+                    throw new Error(frs.error)
                 }
                 // console.log(frs)
 				setAuthUser({

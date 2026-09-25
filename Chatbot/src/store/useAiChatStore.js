@@ -4,6 +4,11 @@ const useAiChatStore = create((set) => ({
   userChats: [], // All chat rooms for the user
   chats: [],     // Messages in selected chat
   error: null,
+  // First message typed on the dashboard, sent once its new chat page opens.
+  // Kept in memory (not localStorage) so image files don't hit storage limits.
+  pendingMessage: null, // { chatId, text, file }
+
+  setPendingMessage: (pendingMessage) => set({ pendingMessage }),
 
   // USER CHAT HANDLERS
   setUserChats: (userChats) => set({ userChats }),

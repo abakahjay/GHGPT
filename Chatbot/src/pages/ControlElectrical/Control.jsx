@@ -15,17 +15,20 @@ import {
 } from "@chakra-ui/react";
 import { FaMicrophone, FaFan, FaLightbulb, FaCog, FaHistory } from "react-icons/fa";
 import { useState, useEffect } from "react";
+import Navbar from "../../components/NavBar/Navbar.jsx";
+import { API_URL } from "../../utils/config";
 
-const API_BASE = "http://localhost:5000/api/v1/gpio"; // 🔁 Use your actual backend URL
+const API_BASE = `${API_URL}/api/v1/ai/gpio`;
 
 const GPIOCard = ({ label, isOn, onToggle, icon }) => (
     <Box
-        bg="gray.800"
+        bg="bg.surface"
+        borderWidth="1px"
+        borderColor="border.default"
         borderRadius="2xl"
-        boxShadow="lg"
+        boxShadow="sm"
         p={5}
         textAlign="center"
-        color="white"
         transition="0.3s"
         _hover={{ transform: "scale(1.02)" }}
     >
@@ -40,7 +43,7 @@ const GPIOCard = ({ label, isOn, onToggle, icon }) => (
     </Box>
 );
 
-export default function Control() {
+export default function Control({ authUser }) {
     const [gpioStates, setGpioStates] = useState({
         led: false,
         fan: false,
@@ -86,6 +89,7 @@ export default function Control() {
         try {
             setLoadingLogs(true);
             const res = await fetch(`${API_BASE}/logs`);
+            if (!res.ok) throw new Error(`Logs unavailable (${res.status})`);
             const data = await res.json();
             setLogs(data.logs || []);
         } catch (err) {
@@ -106,16 +110,18 @@ export default function Control() {
         });
 
     return (
-        <Box p={5} color="white">
-            <Flex justify="space-between" align="center" mb={5}>
-                <Heading size="lg">🧠 AI-Controlled GPIO Dashboard</Heading>
+        <Box minH="100dvh" bg="bg.canvas">
+        <Navbar authUser={authUser} />
+        <Box maxW="6xl" mx="auto" px={{ base: 4, md: 8 }} py={{ base: 6, md: 10 }}>
+            <Flex justify="space-between" align="center" mb={5} gap={4}>
+                <Heading size={{ base: "md", md: "lg" }}>🧠 AI-Controlled GPIO Dashboard</Heading>
                 <IconButton
                     icon={<FaMicrophone />}
                     colorScheme="pink"
                     aria-label="Voice Input"
                     borderRadius="full"
                     size="lg"
-                    onClick={() => alert("🎤 Voice control coming soon!")}
+                    onClick={() => toast({ title: "Voice control coming soon!", status: "info", duration: 2000 })}
                 />
             </Flex>
 
@@ -150,15 +156,16 @@ export default function Control() {
                     <Spinner />
                 ) : (
                     <VStack align="stretch" spacing={3}>
-                        {logs.length === 0 && <Text>No logs found</Text>}
+                        {logs.length === 0 && <Text color="text.muted">No logs found</Text>}
                         {logs.map((log) => (
                             <Box
                                 key={log._id}
-                                bg="gray.700"
+                                bg="bg.surface"
+                                borderWidth="1px"
+                                borderColor="border.default"
                                 p={4}
                                 borderRadius="lg"
-                                boxShadow="sm"
-                                _hover={{ bg: "gray.600" }}
+                                _hover={{ bg: "bg.subtle" }}
                             >
                                 <HStack justify="space-between">
                                     <Text>
@@ -169,7 +176,7 @@ export default function Control() {
                                         {log.source}
                                     </Badge>
                                 </HStack>
-                                <Text fontSize="sm" mt={1} color="gray.300">
+                                <Text fontSize="sm" mt={1} color="text.muted">
                                     {formatDate(log.createdAt)}
                                 </Text>
                             </Box>
@@ -177,6 +184,7 @@ export default function Control() {
                     </VStack>
                 )}
             </Box>
+        </Box>
         </Box>
     );
 }

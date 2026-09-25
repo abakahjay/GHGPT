@@ -1,166 +1,123 @@
 import {
-	Box,
-	Flex,
-	Text,
 	Avatar,
-	VStack,
-	HStack,
-	Divider,
+	Box,
 	Button,
-	useBreakpointValue,
+	Divider,
+	Flex,
+	Heading,
+	HStack,
+	Skeleton,
+	SkeletonCircle,
 	Stack,
-	Link,
+	Text,
 	useDisclosure,
 } from "@chakra-ui/react";
 import { useParams, Link as RouterLink } from "react-router-dom";
 import { MdEmail, MdEdit } from "react-icons/md";
 import { FaGoogle } from "react-icons/fa";
 import { useGetUser } from "../../hooks/useGetUser";
-import { ProfileUrl } from "../../utils/imageUrl";
-import useAuthStore from "../../store/useAuthStore";
+import { useProfilePic } from "../../utils/imageUrl";
+import { unwrapUser } from "../../utils/auth";
 import EditProfile from "../../components/Profile/EditProfile";
 
+function DetailRow({ label, icon, children }) {
+	return (
+		<Box>
+			<Text fontSize="xs" fontWeight="semibold" color="text.muted" textTransform="uppercase" letterSpacing="wider" mb={2}>
+				{label}
+			</Text>
+			<HStack spacing={3} align="center" wordBreak="break-all">
+				<Box color="text.muted" flexShrink={0}>{icon}</Box>
+				{children}
+			</HStack>
+		</Box>
+	);
+}
+
 export function ProfilePage({ authUser }) {
-	// console.log("Auth User:", authUser);
-	const user=authUser.user?authUser.user:authUser
-	const url =user.profile_picture_id?ProfileUrl(user.profile_picture_id):'';
+	const me = unwrapUser(authUser);
 	const { username } = useParams();
 	const { isLoading, userProfile } = useGetUser(username);
-	// console.log(userProfile)
 	const { isOpen, onOpen, onClose } = useDisclosure();
-	const isMobile = useBreakpointValue({ base: true, md: false });
 
-	// Fallback: use authUser if no userProfile is fetched yet
-	const profile = userProfile || authUser;
-	const isOwnProfile = user.username === profile?.user?.username;
-	if (!isLoading && !userProfile) return <UserNotFound />;
+	const isOwnProfile = me?.username === username;
+	// Our own profile comes from the session (it includes private fields like
+	// email); anyone else's comes from the public lookup.
+	const fetched = userProfile?.user;
+	const profile = isOwnProfile ? me : fetched?.username === username ? fetched : null;
+	const avatar = useProfilePic(profile);
+
+	if (!isLoading && !profile && !isOwnProfile) return <UserNotFound />;
+
+	const fullName = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") : "";
 
 	return (
-		<Flex direction="column" p={4} w="100%" maxW="900px" mx="auto" h="100vh">
-			<Box
-				bg="gray.900"
-				borderRadius="xl"
-				boxShadow="md"
-				p={isMobile ? 4 : 8}
-				w="100%"
-			>
-				<Flex justify="space-between" align="center" mb={6}>
-					<Text fontSize="2xl" fontWeight="bold">
-						Account
-					</Text>
-					{isOwnProfile && (
-						<Button
-							leftIcon={<MdEdit />}
-							size="sm"
-							variant="outline"
-							onClick={onOpen}
-						>
-							Update Profile
-						</Button>
-					)}
-				</Flex>
+		<Box maxW="820px" mx="auto" px={{ base: 4, md: 6 }} py={{ base: 6, md: 10 }}>
+			<Flex justify="space-between" align="center" mb={6} gap={4}>
+				<Box>
+					<Heading size="lg" letterSpacing="-0.02em">{isOwnProfile ? "Your account" : "Profile"}</Heading>
+					{isOwnProfile && <Text color="text.muted" fontSize="sm" mt={1}>Manage your account info.</Text>}
+				</Box>
+				{isOwnProfile && profile && (
+					<Button leftIcon={<MdEdit />} size="sm" variant="outline" borderColor="border.default" onClick={onOpen} flexShrink={0}>
+						Edit profile
+					</Button>
+				)}
+			</Flex>
 
-				<Stack
-					direction={{ base: "column", md: "row" }}
-					spacing={8}
-					align="flex-start"
-				>
-					{/* Sidebar */}
-					<VStack
-						align="flex-start"
-						spacing={4}
-						w={{ base: "100%", md: "200px" }}
-					>
-						<Text fontWeight="bold" fontSize="md">
-							Manage your account info.
-						</Text>
-						<Box>
-							<Text
-								fontWeight="medium"
-								color="blue.400"
-								borderLeft="3px solid white"
-								cursor={'pointer'}
-								pl={2}
-							>
-								Profile
-							</Text>
-							<Text pl={2} mt={2} color="gray.400" cursor={'pointer'}>
-								Security
-							</Text>
-						</Box>
-					</VStack>
-
-					{/* Profile Info */}
-					<Box flex={1}>
-						<Text fontSize="xl" fontWeight="semibold" mb={4}>
-							Profile details
-						</Text>
-
-						<HStack spacing={4} mb={4}>
-							<Avatar
-								size="lg"
-								name={user.fullname || user.username}
-								src={url}
-							/>
-							<Box>
-								<Text fontWeight="bold">
-									{user.firstName} {user.lastName}
-								</Text>
-								<Text fontSize="sm" color="gray.400">
-									@{user.username}
-								</Text>
+			<Box bg="bg.surface" borderWidth="1px" borderColor="border.default" borderRadius="2xl" p={{ base: 5, md: 8 }}>
+				{!profile ? (
+					<HStack spacing={4}>
+						<SkeletonCircle size="20" />
+						<Stack flex={1}>
+							<Skeleton h="20px" w="50%" />
+							<Skeleton h="14px" w="30%" />
+						</Stack>
+					</HStack>
+				) : (
+					<>
+						<Stack direction={{ base: "column", sm: "row" }} spacing={5} align={{ base: "center", sm: "center" }} textAlign={{ base: "center", sm: "left" }}>
+							<Avatar size="xl" name={fullName || profile.username} src={avatar} />
+							<Box minW={0}>
+								<Text fontSize="2xl" fontWeight="bold" noOfLines={1}>{fullName || profile.username}</Text>
+								<Text color="text.muted">@{profile.username}</Text>
+								{profile.bio && <Text mt={2} fontSize="sm">{profile.bio}</Text>}
 							</Box>
-						</HStack>
+						</Stack>
 
-						<Divider my={4} borderColor="gray.600" />
-
-						<Box mb={6}>
-							<Text fontSize="sm" color="gray.400" mb={1}>
-								Email addresses
-							</Text>
-							<HStack spacing={2}>
-								<MdEmail />
-								<Text fontSize="md">{user.email}</Text>
-								<Text fontSize="xs" color="gray.400">
-									Primary
-								</Text>
-							</HStack>
-						</Box>
-
-						<Divider my={4} borderColor="gray.600" />
-
-						<Box>
-							<Text fontSize="sm" color="gray.400" mb={1}>
-								Connected accounts
-							</Text>
-							<HStack spacing={2}>
-								<FaGoogle />
-								<Text fontSize="md">{user.email}</Text>
-							</HStack>
-						</Box>
-					</Box>
-				</Stack>
+						{isOwnProfile && (
+							<>
+								<Divider my={6} borderColor="border.default" />
+								<Stack spacing={6}>
+									<DetailRow label="Email address" icon={<MdEmail />}>
+										<Text>{profile.email}</Text>
+										<Text fontSize="xs" color="text.muted" flexShrink={0}>Primary</Text>
+									</DetailRow>
+									{profile.profile_picture?.includes("googleusercontent") && (
+										<DetailRow label="Connected accounts" icon={<FaGoogle />}>
+											<Text>Google · {profile.email}</Text>
+										</DetailRow>
+									)}
+								</Stack>
+							</>
+						)}
+					</>
+				)}
 			</Box>
 
 			{isOpen && <EditProfile isOpen={isOpen} onClose={onClose} />}
-		</Flex>
+		</Box>
 	);
 }
 
 const UserNotFound = () => {
 	return (
-		<Flex flexDir="column" textAlign="center" mx="auto" mt={10}>
-			<Text fontSize="2xl">User Not Found</Text>
-			<Link
-				as={RouterLink}
-				to="/"
-				color="blue.500"
-				w="max-content"
-				mx="auto"
-				mt={2}
-			>
-				Go home
-			</Link>
+		<Flex direction="column" align="center" textAlign="center" py={20} px={4} gap={3}>
+			<Heading size="md">User not found</Heading>
+			<Text color="text.muted">This profile doesn&apos;t exist or has been removed.</Text>
+			<Button as={RouterLink} to="/dashboard" colorScheme="blue" size="sm">
+				Back to chat
+			</Button>
 		</Flex>
 	);
 };

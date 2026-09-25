@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Flex, Spinner } from "@chakra-ui/react";
+import { Flex, Spinner, Text } from "@chakra-ui/react";
 import useAuthStore from "../../store/useAuthStore";
 import useShowToast from "../../hooks/useShowToast";
-import API from "../../utils/api";
+import { fetchCurrentUser } from "../../utils/auth";
 
 // The backend's /auth/google/callback redirects here with ?token=... after
 // a successful Google sign-in. This page's whole job is to:
@@ -18,10 +18,15 @@ import API from "../../utils/api";
 export default function GoogleCallback() {
     const navigate = useNavigate();
     const showToast = useShowToast();
-    const setAuthUser = useAuthStore((state) => state.setAuthUser);
-    const setToken = useAuthStore((state) => state.setToken);
+    const setSession = useAuthStore((state) => state.setSession);
+    // StrictMode runs effects twice in dev; the second run would find the
+    // token already scrubbed from the URL and wrongly report a failure.
+    const handled = useRef(false);
 
     useEffect(() => {
+        if (handled.current) return;
+        handled.current = true;
+
         const verifyGoogleLogin = async () => {
             const params = new URLSearchParams(window.location.search);
             const token = params.get("token");
@@ -30,88 +35,30 @@ export default function GoogleCallback() {
             window.history.replaceState({}, "", "/auth/callback");
 
             if (!token) {
-                showToast("Error", "Google sign-in failed: no token received.", "error");
+                showToast("Error", params.get("error") || "Google sign-in failed: no token received.", "error");
                 navigate("/auth", { replace: true });
                 return;
             }
 
             try {
-                const { data } = await API.get("/api/v1/auth/dashboard", {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-
-                setToken(token);
-                setAuthUser(data.user);
-                localStorage.setItem("user-info", JSON.stringify({ user: data.user, token }));
-
+                const user = await fetchCurrentUser(token);
+                setSession({ user, token });
                 showToast("Success", "Logged in with Google", "success");
-                navigate("/", { replace: true });
+                navigate("/dashboard", { replace: true });
             } catch (error) {
-                console.log(error);
+                console.error(error);
                 showToast("Error", "Google sign-in failed. Please try again.", "error");
                 navigate("/auth", { replace: true });
             }
         };
 
         verifyGoogleLogin();
-    }, []);
+    }, [navigate, setSession, showToast]);
 
     return (
-        <Flex h="100vh" alignItems="center" justifyContent="center">
-            <Spinner size="xl" />
+        <Flex h="100dvh" direction="column" gap={4} alignItems="center" justifyContent="center">
+            <Spinner size="xl" color="accent" thickness="3px" />
+            <Text color="text.muted">Signing you in…</Text>
         </Flex>
     );
 }
-// import { useEffect } from "react";
-// import { useNavigate } from "react-router-dom";
-// import { Flex, Spinner } from "@chakra-ui/react";
-// import useAuthStore from "../../store/useAuthStore";
-// import useShowToast from "../../hooks/useShowToast";
-// import API from "../../utils/api";
-
-// export default function GoogleCallback() {
-//     const navigate = useNavigate();
-//     const showToast = useShowToast();
-//     const setAuthUser = useAuthStore((state) => state.setAuthUser);
-//     const setToken = useAuthStore((state) => state.setToken);
-
-//     useEffect(() => {
-//         const verifyGoogleLogin = async () => {
-//             const params = new URLSearchParams(window.location.search);
-//             const token = params.get("token");
-
-//             window.history.replaceState({}, "", "/auth/callback");
-
-//             if (!token) {
-//                 showToast("Error", "Google sign-in failed: no token received.", "error");
-//                 navigate("/auth", { replace: true });
-//                 return;
-//             }
-
-//             try {
-//                 const { data } = await API.get("/api/v1/auth/dashboard", {
-//                     headers: { Authorization: `Bearer ${token}` },
-//                 });
-
-//                 setToken(token);
-//                 setAuthUser(data.user);
-//                 localStorage.setItem("user-info", JSON.stringify({ user: data.user, token }));
-
-//                 showToast("Success", "Logged in with Google", "success");
-//                 navigate("/", { replace: true });
-//             } catch (error) {
-//                 console.log(error);
-//                 showToast("Error", "Google sign-in failed. Please try again.", "error");
-//                 navigate("/auth", { replace: true });
-//             }
-//         };
-
-//         verifyGoogleLogin();
-//     }, []);
-
-//     return (
-//         <Flex h="100vh" alignItems="center" justifyContent="center">
-//             <Spinner size="xl" />
-//         </Flex>
-//     );
-// }

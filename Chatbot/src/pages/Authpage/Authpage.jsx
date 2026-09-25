@@ -1,28 +1,26 @@
-import { Container, Flex, VStack, Box, Image } from "@chakra-ui/react";
-import {AuthForm} from "./AuthForm";
+import { Flex, HStack, Image, Text } from "@chakra-ui/react";
+import { AuthForm } from "./AuthForm";
+import Brand from "../../components/ui/Brand";
+import ColorModeToggle from "../../components/ui/ColorModeToggle";
 
-export function Authpage({onAuth}){
+export function Authpage({ onAuth }) {
 	return (
-		<Flex minH={"100vh"} justifyContent={"center"} alignItems={"center"} px={4} marginTop={2}>
-			<Container maxW={"container.md"} padding={0}>
-				<Flex justifyContent={"center"} alignItems={"center"} gap={10}>
-					{/* Left hand-side */}
-					<Box display={{ base: "none", md: "block" }}>
-						{/* <Image src='/19406375.jpg' h={650} alt='Phone img' /> */}
-					</Box>
+		<Flex direction="column" minH="100dvh" bg="bg.canvas">
+			<Flex as="header" h="64px" px={{ base: 4, md: 8 }} align="center" justify="space-between">
+				<Brand size="30px" fontSize="lg" />
+				<ColorModeToggle />
+			</Flex>
 
-					{/* Right hand-side */}
-					<VStack spacing={4} align={"stretch"}>
-						<AuthForm onAuth={onAuth}/>
-						<Box textAlign={"center"}>Get the app.</Box>
-						<Flex gap={5} justifyContent={"center"}>
-							<Image src='/playstore.png' cursor={"pointer"} h={"10"} alt='Playstore logo' />
-							<Image src='/microsoft.png' cursor={"pointer"} h={"10"} alt='Microsoft logo' />
-						</Flex>
-					</VStack>
+			<Flex flex={1} align="center" justify="center" px={4} py={{ base: 6, md: 10 }}>
+				<Flex direction="column" gap={4} w="full" maxW="400px">
+					<AuthForm onAuth={onAuth} />
+					<Text textAlign="center" fontSize="sm" color="text.muted">Get the app</Text>
+					<HStack spacing={4} justify="center">
+						<Image src='/playstore.png' h="10" alt='Get it on Google Play' />
+						<Image src='/microsoft.png' h="10" alt='Get it from Microsoft' />
+					</HStack>
 				</Flex>
-			</Container>
+			</Flex>
 		</Flex>
 	);
-};
-
+}

@@ -1,172 +1,104 @@
-// import ChatApp from "./components/ChatApp/ChatAppDemo.jsx";
-import { createBrowserRouter, RouterProvider, Navigate, useNavigate } from 'react-router-dom';
-// import {Homepage} from './pages/Homepage/Homepage'
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Flex, Spinner } from "@chakra-ui/react";
 import { Authpage } from "./pages/Authpage/Authpage.jsx";
 import PageLayout from "./Layouts/PageLayouts/PageLayout.jsx";
-import { useEffect, useState } from "react";
 import useAuthStore from "./store/useAuthStore.js";
-import API from "./utils/api";
-import {ProfilePage} from './pages/ProfilePage/ProfilePage';
+import { fetchCurrentUser } from "./utils/auth.js";
+import { ProfilePage } from './pages/ProfilePage/ProfilePage';
 import MessagesPage from './pages/Messages/Messages';
 import useLogout from "./hooks/useLogout.js";
-import { Flex, Spinner } from "@chakra-ui/react";
-import useShowToast from "./hooks/useShowToast.js";
-// import ChatModal from "./components/Modals/messagesModal.jsx";
-import Try1 from "./components/test/Try1.jsx";
 import Homepage from "./routes/homePage/Homepage.jsx"
 import Dashboard from "./routes/dashboardPage/Dashboard.jsx";
-import ChatPage from "./routes/chatPage/Chatpage1.jsx";
-import Control from "./pages/ControlElectrical/Control.jsx";
 import GoogleCallback from "./pages/Authpage/GoogleCallback.jsx";
 
-export default function App(){
-    const showToast = useShowToast()
-    const {logout} =useLogout()
-    const authUser= useAuthStore(state=>state.user)
-    const setAuthUser= useAuthStore((state)=>state.setAuthUser)
-    const {user}= useAuthStore();
-    const [loading, setLoading] = useState(true);
-    // console.log(user?.token)
-    // Fetch the authenticated user on initial load
-    useEffect(() => {
-        const controller = new AbortController();
-        const fetchAuthUser = async () => {
-            if (user) {
-                try {
-                    const { data } = await API.get("/api/v1/auth/dashboard", {
-                        signal: controller.signal,
-                        headers: { Authorization: `Bearer ${user?.token}` }
-                    });
-                    setAuthUser(data.user);
-                    localStorage.setItem("user-info", JSON.stringify({user:data.user,token:user.token}));
-                } catch (error) {
-                    showToast("Loading",'', "loading",1000);
-                } finally {
-                    setLoading(false);
-                }
-            } else {
-                setLoading(false);
-            }
-        };
+// Loaded on demand: the chat page pulls in the syntax highlighter.
+const ChatPage = lazy(() => import("./routes/chatPage/Chatpage1.jsx"));
+const Control = lazy(() => import("./pages/ControlElectrical/Control.jsx"));
 
-        fetchAuthUser();
-
-        return ()=>{//This is a cleanup function
-            controller.abort();
-        }
-    }, [user, setAuthUser]);
-
-
-    const handleLogout = (userId) => {
-        logout(userId)
-    };
-
-    if (loading) return <PageLayoutSpinner />
-
-
-
-
-
-
-
-
-    const router = createBrowserRouter([
-         {
-            path: '/auth/callback',
-            element: <GoogleCallback />,
-        },
-        {
-            path: '/dashboard',
-            element: (
-                <PageLayout authUser={authUser} onLogout={handleLogout}>
-                    {authUser ? <Dashboard authUser={authUser} onLogout={handleLogout}/> : <Navigate to="/auth" />}
-                </PageLayout>
-            ),
-        },
-        {
-            path: '/chat',
-            element: (
-                <PageLayout authUser={authUser} onLogout={handleLogout}>
-                    {authUser ? <ChatPage authUser={authUser} onLogout={handleLogout}/> : <Navigate to="/auth" />}
-                </PageLayout>
-            ),
-        },
-        {
-            path: '/auth',
-            element: (
-                <>
-                    <PageLayout>
-                        {!authUser ? <Authpage onAuth={setAuthUser} /> : <Navigate to="/" />}
-                    </PageLayout>
-                    
-                </>
-            ),
-        },
-        {
-            path: '/auth/test',//Just for testing
-            element: (
-                <>
-                    <Try1 onAuth={setAuthUser}/>
-                </>
-            ),
-        },
-        {
-            path: '/:username',
-            element: (
-                <PageLayout authUser={authUser} onLogout={handleLogout}>
-                    {authUser ? <ProfilePage authUser={authUser} onLogout={handleLogout} /> : <Navigate to="/auth" onLogout={handleLogout}/>}
-                    {/* <ProfilePage authUser={authUser}  onLogout={handleLogout} /> */}
-                </PageLayout>
-            ),
-        },
-        {
-            path: '/chat/:chatId',
-            element: (
-                <PageLayout authUser={authUser} onLogout={handleLogout}>
-                    {/* {authUser ? <ProfilePage authUser={authUser} onLogout={handleLogout} /> : <Navigate to="/auth" onLogout={handleLogout}/>} */}
-                    {authUser ? <ChatPage authUser={authUser} onLogout={handleLogout}/> : <Navigate to="/auth" />}
-                </PageLayout>
-            ),
-        },
-        {
-            path: '/history',
-            element: (
-                <PageLayout authUser={authUser} onLogout={handleLogout}>
-                    {authUser ? <MessagesPage authUser={authUser} onLogout={handleLogout} /> : <Navigate to="/auth" onLogout={handleLogout}/>}
-                </PageLayout>
-            ),
-        },
-        {
-            path: '/',
-            element: (
-                    <Homepage authUser={authUser} onLogout={handleLogout} />
-            ),
-        },
-        ,
-        {
-            path: '/control',
-            element: (
-                    <Control authUser={authUser} onLogout={handleLogout} />
-            ),
-        },
-    ]);
-
-
-
-    
-
-    return <>
-            {/* This is for Creating Routes and Pages */}
-            <RouterProvider router={router} />
-            {/* <ChatApp userId={'67886226f65d5209b0836659'} recipientId={'67886bde4f9166876c734a8c'}/> */}
-        </>
+// Wraps a page in the app shell and redirects to /auth when logged out.
+// Reading the store here (instead of closing over props) lets the router be
+// created once at module level.
+function Protected({ page: Page }) {
+    const authUser = useAuthStore((state) => state.user);
+    const { logout } = useLogout();
+    if (!authUser) return <Navigate to="/auth" replace />;
+    return (
+        <PageLayout authUser={authUser} onLogout={logout}>
+            <Suspense fallback={<PageLayoutSpinner />}>
+                <Page authUser={authUser} onLogout={logout} />
+            </Suspense>
+        </PageLayout>
+    );
 }
 
+function AuthRoute() {
+    const authUser = useAuthStore((state) => state.user);
+    const setAuthUser = useAuthStore((state) => state.setAuthUser);
+    if (authUser) return <Navigate to="/dashboard" replace />;
+    return <Authpage onAuth={setAuthUser} />;
+}
+
+function PublicPage({ page: Page }) {
+    const authUser = useAuthStore((state) => state.user);
+    const { logout } = useLogout();
+    return (
+        <Suspense fallback={<PageLayoutSpinner />}>
+            <Page authUser={authUser} onLogout={logout} />
+        </Suspense>
+    );
+}
+
+const router = createBrowserRouter([
+    { path: '/', element: <PublicPage page={Homepage} /> },
+    { path: '/auth', element: <AuthRoute /> },
+    { path: '/auth/callback', element: <GoogleCallback /> },
+    { path: '/dashboard', element: <Protected page={Dashboard} /> },
+    { path: '/chat', element: <Navigate to="/dashboard" replace /> },
+    { path: '/chat/:chatId', element: <Protected page={ChatPage} /> },
+    { path: '/history', element: <Protected page={MessagesPage} /> },
+    { path: '/control', element: <PublicPage page={Control} /> },
+    { path: '/:username', element: <Protected page={ProfilePage} /> },
+    { path: '*', element: <Navigate to="/" replace /> },
+]);
+
+export default function App() {
+    const user = useAuthStore((state) => state.user);
+    const token = useAuthStore((state) => state.token);
+    const setAuthUser = useAuthStore((state) => state.setAuthUser);
+    const logoutUser = useAuthStore((state) => state.logoutUser);
+    // Only block rendering when there is a token but no cached user to show.
+    const [verifying, setVerifying] = useState(Boolean(token && !user));
+
+    // Refresh the user document once per token so profile changes show up.
+    useEffect(() => {
+        if (!token) {
+            setVerifying(false);
+            return;
+        }
+        const controller = new AbortController();
+        fetchCurrentUser(token, { signal: controller.signal })
+            .then((freshUser) => setAuthUser(freshUser))
+            .catch((error) => {
+                if (error.name === "CanceledError") return;
+                // An expired/invalid token ends the session; network errors keep the cached user.
+                if (error.response?.status === 401) logoutUser();
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setVerifying(false);
+            });
+        return () => controller.abort();
+    }, [token, setAuthUser, logoutUser]);
+
+    if (verifying) return <PageLayoutSpinner />;
+
+    return <RouterProvider router={router} />;
+}
 
 const PageLayoutSpinner = () => {
 	return (
-		<Flex flexDir='column' h='100vh' alignItems='center' justifyContent='center'>
-			<Spinner size='xl' />
+		<Flex flexDir='column' h='100%' minH='60vh' alignItems='center' justifyContent='center'>
+			<Spinner size='xl' color="accent" thickness="3px" />
 		</Flex>
 	);
 };

@@ -1,17 +1,14 @@
 import API from "./api.js";
 
-export const loginUser = async (email, password) => {
-    const { data } = await API.post("/api/v1/auth/login", { email, password });
-    console.log(data);
-    return data;
+// Login/signup only return { token, userId }, so the full user document is
+// always loaded from /dashboard with the fresh token.
+export const fetchCurrentUser = async (token, config = {}) => {
+    const { data } = await API.get("/api/v1/auth/dashboard", {
+        ...config,
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return data.user;
 };
 
-export const registerUser = async (email, password,firstName,lastName,username) => {
-    const { data } = await API.post("/api/v1/auth/signup", { email, password,firstName,lastName,username });
-    console.log(data);
-    return data;
-};
-
-export const logoutUser = async (userId) => {
-    await API.post(`/api/v1/auth/logout?userId=${userId}`);
-};
+// Returns the user object whether a component got `{ user }` or the user itself.
+export const unwrapUser = (authUser) => (authUser?.user ? authUser.user : authUser) || null;

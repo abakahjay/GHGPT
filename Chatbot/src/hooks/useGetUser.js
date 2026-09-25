@@ -1,61 +1,35 @@
 import useProfileStore from '../store/userProfileStore'
-import useAuthStore from "../store/useAuthStore";
 import API from "../utils/api";
-import useShowToast from "./useShowToast"; // Custom toast hook (if you have one)
+import useShowToast from "./useShowToast";
 import { useEffect } from 'react';
 
+// Loads a user's public profile by username into the profile store.
+export const useGetUser = (username) => {
+    const showToast = useShowToast();
+    const { userProfile, setError, setLoading, isLoading, error, setUserProfile } = useProfileStore();
 
-
-
-export const  useGetUser= (username)=> {
-    
-    const showToast = useShowToast(); // Show toast notifications
-    const {user}= useAuthStore();
-    const {userProfile,setError,setLoading,isLoading,error,setUserProfile} = useProfileStore();
-
-    
-    useEffect(()=>{
+    useEffect(() => {
+        if (!username) return;
         const controller = new AbortController();
-        const fetchUser = async () => {
-            if (!username) {
-                return showToast("Error", "Please enter a username", "error");
-            }
-            setLoading(true); // Set loading state to true
-            try {
-                // Send login request to the backend
-                const response =await API.patch(`/api/v1/users/${username}`,{
-                    signal: controller.signal,
-                })
-                // Save user info to Zustand and local storage
-                const users = response.data
-                // console.log(user)
-                setUserProfile(users)
-                setError(null)
-                const a =user.username===username
-                console.log(a)
-                console.log('Searched',username)
-                console.log('Actual',user.username)
-                // console.log(user)
-                if(a){
-                    return
-                }
-                showToast("Success", `User: ${username} Found successful`, "success");
-            } catch (err) {
-                const message = err.response?.data?.error || "User not found";
-                setError(message); // Update Zustand error state
+        setLoading(true);
+        API.patch(`/api/v1/users/${username}`, {}, { signal: controller.signal })
+            .then((response) => {
+                setUserProfile(response.data);
+                setError(null);
+            })
+            .catch((err) => {
+                if (controller.signal.aborted) return;
+                const message = err.response?.data?.error || err.response?.data?.msg || "User not found";
+                setUserProfile(null);
+                setError(message);
                 showToast("Error", message, "error");
-                
-            } finally {
-                setLoading(false); // Reset loading state
-            }
-        };
-        fetchUser()
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false);
+            });
 
-        return ()=>{//This is a cleanup function
-            controller.abort();
-        }
-    },[ username, showToast])
+        return () => controller.abort();
+    }, [username, showToast, setError, setLoading, setUserProfile]);
 
-    return {isLoading, error,userProfile };
-
+    return { isLoading, error, userProfile };
 }

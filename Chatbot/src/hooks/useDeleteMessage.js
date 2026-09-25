@@ -1,3 +1,4 @@
+import { formatMessage } from "../utils/formatMessage";
 import { useState } from "react";
 import useAiChatStore from "../store/useAiChatStore";
 import useShowToast from "./useShowToast";
@@ -5,8 +6,7 @@ import API from "../utils/api";
 const useDeleteMessage = () => {
   const [loadingg, setLoading] = useState(false);
   const showToast = useShowToast();
-  const { setChats, setError } = useAiChatStore();
-  const apiUrl = import.meta.env.VITE_API_URL
+  const { setChats } = useAiChatStore();
 
   const handleMessageDelete = async ({
     fileId,
@@ -32,22 +32,7 @@ const useDeleteMessage = () => {
       }
 
       // console.log(answer)
-      const messages = (answer.history || []).map((msg) => {
-        if (msg.img) {
-          return {
-            type: "image",
-            image: `${apiUrl}/api/v1/ai/image/${msg.img}`,
-            text: msg.parts?.[0]?.text || "",
-            fromUser: msg.role === "user",
-            fileId: msg.img,
-          };
-        }
-        return {
-          type: "text",
-          text: msg.parts?.[0]?.text || "",
-          fromUser: msg.role === "user",
-        };
-      });
+      const messages = (answer.history || []).map(formatMessage);
 
       setChats(messages);
     } catch (err) {

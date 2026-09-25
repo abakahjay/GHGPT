@@ -1,42 +1,34 @@
 import useAuthStore from "../store/useAuthStore";
+import useAiChatStore from "../store/useAiChatStore";
 import API from "../utils/api";
-import useShowToast from "./useShowToast"; // Custom toast hook (if you have one)
+import useShowToast from "./useShowToast";
 
 const useLogout = () => {
-    const showToast = useShowToast(); // Show toast notifications
-    const logoutUser = useAuthStore((state) => state.logoutUser); // Zustand store action for login
-    const setError = useAuthStore((state) => state.setError); // Zustand action to handle errors
-    const setLoading = useAuthStore((state) => state.setLoading); // Zustand action to manage loading state
-    const isLoading = useAuthStore((state) => state.isLoading); // Zustand loading state
-    const error = useAuthStore((state) => state.error); // Zustand error state
-
-    const setAuthUser= useAuthStore((state)=> state.setAuthUser)
+    const showToast = useShowToast();
+    const logoutUser = useAuthStore((state) => state.logoutUser);
+    const setError = useAuthStore((state) => state.setError);
+    const setLoading = useAuthStore((state) => state.setLoading);
+    const isLoading = useAuthStore((state) => state.isLoading);
+    const error = useAuthStore((state) => state.error);
 
     const logout = async (userId) => {
-        
-        if (!userId) {
-            return showToast("Error", "You are not authorized to logout this user", "error");
-        }
-        setLoading(true); // Set loading state to true
+        setLoading(true);
         try {
-            // Send login request to the backend
-            const response = await API.post(`/api/v1/auth/logout?userId=${userId}`);
-
-            const userData = response.data;
-            console.log(userData)
-
-            // Save user info to Zustand and local storage
-            logoutUser(); // Update Zustand state
-            setAuthUser(null);
-            setError(null)
-            const message = response?.data?.message || "Logout successful";
-            showToast("Success", message, "success");
+            if (userId) {
+                const response = await API.post(`/api/v1/auth/logout?userId=${userId}`);
+                showToast("Success", response?.data?.message || "Logout successful", "success");
+            }
+            setError(null);
         } catch (err) {
-            const message = err.response?.data?.error || "Logout failed";
-            setError(message); // Update Zustand error state
-            showToast("Error", message, "error");
+            // The local session is cleared regardless, so a failed server call
+            // never leaves the user stuck logged in.
+            setError(null);
+            showToast("Logged out", err.response?.data?.msg || "Session ended on this device", "info");
         } finally {
-            setLoading(false); // Reset loading state
+            logoutUser();
+            useAiChatStore.getState().setUserChats([]);
+            useAiChatStore.getState().setChats([]);
+            setLoading(false);
         }
     };
 

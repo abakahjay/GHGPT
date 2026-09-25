@@ -1,40 +1,33 @@
 import useAuthStore from "../store/useAuthStore";
 import API from "../utils/api";
-import useShowToast from "./useShowToast"; // Custom toast hook (if you have one)
+import { fetchCurrentUser } from "../utils/auth";
+import useShowToast from "./useShowToast";
 
 const useLogin = () => {
-    const showToast = useShowToast(); // Show toast notifications
-    const loginUser = useAuthStore((state) => state.loginUser); // Zustand store action for login
-    const setError = useAuthStore((state) => state.setError); // Zustand action to handle errors
-    const setLoading = useAuthStore((state) => state.setLoading); // Zustand action to manage loading state
-    const isLoading = useAuthStore((state) => state.isLoading); // Zustand loading state
-    const error = useAuthStore((state) => state.error); // Zustand error state
+    const showToast = useShowToast();
+    const setSession = useAuthStore((state) => state.setSession);
+    const setError = useAuthStore((state) => state.setError);
+    const setLoading = useAuthStore((state) => state.setLoading);
+    const isLoading = useAuthStore((state) => state.isLoading);
+    const error = useAuthStore((state) => state.error);
 
-    const login = async (email,password) => {
+    const login = async (email, password) => {
         if (!email || !password) {
             return showToast("Error", "Please fill all the fields", "error");
         }
-        setLoading(true); // Set loading state to true
+        setLoading(true);
         try {
-            // Send login request to the backend
-            const response = await API.post("/api/v1/auth/login", {
-                email,
-                password,
-            });
-
-            // Save user info to Zustand and local storage
-            const userData = response.data;
-            localStorage.setItem("user-info", JSON.stringify(userData));
-            loginUser(userData); // Update Zustand state
-            setError(null)
-
+            const { data } = await API.post("/api/v1/auth/login", { email, password });
+            const user = await fetchCurrentUser(data.token);
+            setSession({ user, token: data.token });
+            setError(null);
             showToast("Success", "Login successful", "success");
         } catch (err) {
-            const message = err.response?.data?.error || "Login failed";
-            setError(message); // Update Zustand error state
+            const message = err.response?.data?.msg || err.response?.data?.error || "Login failed";
+            setError(message);
             showToast("Error", message, "error");
         } finally {
-            setLoading(false); // Reset loading state
+            setLoading(false);
         }
     };
 

@@ -1,790 +1,353 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react/prop-types */
-import { CopyIcon } from "@chakra-ui/icons";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
-import  { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
+  Button,
+  chakra,
   Flex,
-  Textarea,
+  HStack,
   IconButton,
-  VStack,
-  useBreakpointValue,
-  Image as ChakraImage,
+  Image,
+  keyframes,
   Spinner,
   Text,
-  HStack,
-  Button,
-  useClipboard
+  Textarea,
+  Tooltip,
 } from "@chakra-ui/react";
-import {
-  FaMicrophone,
-  FaRegImage,
-  FaVolumeUp,
-} from "react-icons/fa";
-import { IoIosArrowUp } from "react-icons/io";
-import {
-  MdContentCopy,
-  MdDeleteOutline,
-  MdEdit,
-} from "react-icons/md";
-import useShowToast from "../../hooks/useShowToast";
+import { FiCopy, FiEdit2, FiTrash2, FiVolume2 } from "react-icons/fi";
 import { useParams } from "react-router-dom";
+import useShowToast from "../../hooks/useShowToast";
 import useGetChat from "../../hooks/useGetChat";
-// import useAddMessage from "../../hooks/useAddMessage";
 import useHandleMessageSend from "../../hooks/useHandleMessageSend";
 import useDeleteMessage from "../../hooks/useDeleteMessage";
 import useEditMessage from "../../hooks/useEditMessage";
+import useAiChatStore from "../../store/useAiChatStore";
+import { unwrapUser } from "../../utils/auth";
+import { ChatGptLogo1 } from "../../assets/constants";
+import Composer from "../../components/Chat/Composer";
+import MessageContent from "../../components/Chat/MessageContent";
 
+const BotLogo = chakra(ChatGptLogo1);
 
+// A freshly created chat starts with a "." placeholder message that the
+// backend replaces with a real title; it is never shown.
+const isPlaceholder = (msg) => msg.fromUser && !msg.image && msg.text === ".";
+
+const bounce = keyframes`
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+`;
+
+function TypingIndicator() {
+  return (
+    <Flex gap={3} align="flex-start" mb={6}>
+      <BotLogo boxSize="28px" flexShrink={0} mt={1} />
+      <HStack spacing={1.5} bg="bubble.bot" px={4} py={3} borderRadius="2xl" borderTopLeftRadius="sm">
+        {[0, 1, 2].map((i) => (
+          <Box key={i} boxSize="8px" borderRadius="full" bg="text.muted" animation={`${bounce} 1.2s ${i * 0.16}s infinite ease-in-out`} />
+        ))}
+      </HStack>
+    </Flex>
+  );
+}
+
+function ActionButton({ label, icon, onClick, isLoading }) {
+  return (
+    <Tooltip label={label} hasArrow openDelay={400}>
+      <IconButton
+        icon={icon}
+        aria-label={label}
+        size="xs"
+        variant="ghost"
+        color="text.muted"
+        fontSize="sm"
+        isLoading={isLoading}
+        onClick={onClick}
+      />
+    </Tooltip>
+  );
+}
+
+const copyImage = (src) =>
+  new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+      canvas.toBlob(async (blob) => {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      }, "image/png");
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
 
 const ChatPage = ({ authUser }) => {
-  const [messages, setMessages] = useState([]);
-  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const { chatId } = useParams();
+  const userId = unwrapUser(authUser)?._id;
+  const showToast = useShowToast();
+
   const [input, setInput] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [optimistic, setOptimistic] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingText, setEditingText] = useState("");
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const fileInputRef = useRef(null);
-  const messagesEndRef = useRef(null);
-  const isMobile = useBreakpointValue({ base: true, md: false });
-  const showToast = useShowToast();
-  const recognitionRef = useRef(null);
-  const [transcript, setTranscript] = useState("");
+  const [deletingIndex, setDeletingIndex] = useState(null);
+  const scrollRef = useRef(null);
+  const handledPending = useRef(null);
+
+  const { chats, isLoading } = useGetChat(userId, chatId);
+  const { handleMessageSend, loading: sending } = useHandleMessageSend();
+  const { handleMessageDelete } = useDeleteMessage();
   const { editMessage, loading: editingLoading } = useEditMessage();
 
+  // `idx` is the message's position in the saved history (used by edit/delete);
+  // optimistic messages that aren't saved yet have idx = null.
+  const messages = useMemo(
+    () => [
+      ...chats.map((msg, idx) => ({ ...msg, idx })).filter((msg) => !isPlaceholder(msg)),
+      ...optimistic.map((msg) => ({ ...msg, idx: null })),
+    ],
+    [chats, optimistic]
+  );
 
-  const { chatId } = useParams();
-  const user = authUser.user ? authUser.user : authUser
-  const userId = user._id;
+  const sendMessage = useCallback(
+    async ({ text, file, preview }) => {
+      setOptimistic([{ text, image: preview, fromUser: true }]);
+      const ok = await handleMessageSend({ userId, chatId, prompt: text || null, file, text });
+      setOptimistic([]);
+      return ok;
+    },
+    [handleMessageSend, userId, chatId]
+  );
 
-  const {  chats } = useGetChat(userId, chatId);
-  // const { addMessage } = useAddMessage();
-  const { handleMessageSend, loading } = useHandleMessageSend();
-  const { handleMessageDelete, loadingg } = useDeleteMessage();
-
-  // Auto-scroll and initial load
+  // Send the message typed on the dashboard once this new chat opens.
   useEffect(() => {
-    const controller = new AbortController();
-    setIsLoading(true);
-    const firstMessage = localStorage.getItem("dashboardMessage");
-    const fileInfoRaw = localStorage.getItem("fileInfo");
+    const pending = useAiChatStore.getState().pendingMessage;
+    if (!pending || pending.chatId !== chatId || handledPending.current === chatId) return;
+    handledPending.current = chatId;
+    useAiChatStore.getState().setPendingMessage(null);
+    const preview = pending.file ? URL.createObjectURL(pending.file) : undefined;
+    sendMessage({ text: pending.text, file: pending.file, preview });
+  }, [chatId, sendMessage]);
 
-    setMessages(chats);
-
-    const newMessages = [];
-    let hasUserInput = false;
-    if (!fileInfoRaw && firstMessage) {
-      newMessages.push({ text: firstMessage, fromUser: true });
-      handleMessageSend({
-        userId,
-        chatId,
-        prompt: firstMessage,
-        file: imageFile,
-        text: input.trim(),
-      });
-      localStorage.removeItem("dashboardMessage");
-      hasUserInput = true;
-    }
-
-    if (fileInfoRaw) {
-      try {
-        const fileInfo = JSON.parse(fileInfoRaw);
-        if (fileInfo.base64 && fileInfo.type.startsWith("image/")) {
-          console.log('Hello the if statement works')
-          newMessages.push({
-            image: fileInfo.base64,
-            fileInfo: {
-              name: fileInfo.name,
-              type: fileInfo.type,
-              size: fileInfo.size,
-            },
-            fromUser: true,
-          });
-          const byteString = atob(fileInfo.base64.split(',')[1]);
-          const mimeString = fileInfo.type;
-          const ab = new ArrayBuffer(byteString.length);
-          const ia = new Uint8Array(ab);
-          for (let i = 0; i < byteString.length; i++) {
-            ia[i] = byteString.charCodeAt(i);
-          }
-          const blob = new Blob([ab], { type: mimeString });
-          const file = new File([blob], fileInfo.name, { type: mimeString });
-          setImageFile(file);
-          // eslint-disable-next-line no-unused-vars
-          hasUserInput = true;
-          const sendPic = async () => {
-            await handleMessageSend({
-              userId,
-              chatId,
-              prompt: firstMessage || null,
-              file: file,
-              text: firstMessage,
-            });
-          }
-          sendPic()
-        }
-        localStorage.removeItem("fileInfo");
-        localStorage.removeItem("dashboardMessage");
-      } catch (err) {
-        console.error("Invalid file info in localStorage", err);
-      }
-    }
-
-    if (newMessages.length > 0) {
-      setMessages(newMessages);
-    }
-    setIsLoading(false);
-    return () => {//This is a cleanup function
-      controller.abort();
-    }
-  }, [chats]);
-
+  // Keep the newest message in view.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, chats, isLoading, loading]);
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages.length, sending, editingLoading]);
 
   const handleSend = async () => {
-    if (!input.trim() && !imagePreview) return;
-    const newMessages = [...messages];
-    if (input.trim()) {
-      newMessages.push({ text: input.trim(), fromUser: true });
-    }
-
-    if (imagePreview) {
-      newMessages.push({
-        image: imagePreview,
-        fileInfo: {
-          name: imageFile.name,
-          type: imageFile.type,
-          size: (imageFile.size / 1024).toFixed(1) + " KB",
-        },
-        fromUser: true,
-      });
-      setImagePreview(null);
-      setImageFile(null);
-    }
-    setMessages(newMessages);
+    const text = input.trim();
+    if ((!text && !attachment) || sending) return;
+    const current = attachment;
     setInput("");
-    setIsLoading(true);
-    if (messages && messages[0]?.text === '.') {
-      handleMessageDelete({
-        fileId: messages[0]?.fileId,
-        userId,
-        chatId,
-        messageIndex: 0,
-      });
+    setAttachment(null);
+    const ok = await sendMessage({ text, file: current?.file, preview: current?.preview });
+    if (!ok) {
+      // Give the user their message back so they can retry.
+      setInput(text);
+      setAttachment(current);
     }
-    try {
-      await handleMessageSend({
-        userId,
-        chatId,
-        prompt: input.trim() || null,
-        file: imageFile,
-        text: input.trim(),
-      });
-    } catch (error) {
-      console.error("Failed to send message:", error);
-    }
-    setIsLoading(false);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith("image/")) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result);
-      reader.readAsDataURL(file);
-    } else {
-      showToast("Error", "Please upload a valid image file.", "error");
-    }
-    e.target.value = "";
   };
 
   const handleCopy = async (msg) => {
-    if (msg.image) {
-      try {
-        // Create an offscreen image
-        const img = new window.Image();
-        img.crossOrigin = "anonymous"; // Avoid tainting canvas
-        img.src = msg.image;
-
-        img.onload = async () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0);
-
-          canvas.toBlob(async (blob) => {
-            try {
-              await navigator.clipboard.write([
-                new ClipboardItem({
-                  "image/png": blob,
-                }),
-              ]);
-              showToast("Copied", "Image copied to clipboard.", "success");
-            } catch (err) {
-              console.error("Copy failed:", err);
-              showToast("Error", "Failed to copy image.", "error");
-            }
-          }, "image/png");
-        };
-
-        img.onerror = () => {
-          showToast("Error", "Image load failed", "error");
-        };
-      } catch (err) {
-        console.error("Copy image failed:", err);
-        showToast("Error", "Failed to copy image", "error");
-      }
-    } else {
-      try {
+    try {
+      if (msg.image && !msg.text) {
+        await copyImage(msg.image);
+        showToast("Copied", "Image copied to clipboard.", "success", 1500);
+      } else {
         await navigator.clipboard.writeText(msg.text || "");
-        showToast("Copied", "Message copied to clipboard.", "success");
-      } catch (err) {
-        console.error("Copy text failed:", err);
-        showToast("Error", "Failed to copy text", "error");
+        showToast("Copied", "Message copied to clipboard.", "success", 1500);
       }
+    } catch (err) {
+      console.error("Copy failed:", err);
+      showToast("Error", "Couldn't copy to the clipboard.", "error");
     }
   };
 
-
-
-
-
-  const handleDelete = (index, msg) => {
-    handleMessageDelete({
-      fileId: msg?.fileId,
-      userId,
-      chatId,
-      messageIndex: index,
-    });
+  const speakMessage = (text) => {
+    if (!text || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.replace(/```[\s\S]*?```/g, " code block "));
+    utterance.lang = "en-US";
+    window.speechSynthesis.speak(utterance);
   };
 
-  const handleEdit = (index) => {
-    setEditingIndex(index);
-    setEditingText(messages[index].text || "");
+  const handleDelete = async (msg) => {
+    setDeletingIndex(msg.idx);
+    await handleMessageDelete({ fileId: msg.fileId, userId, chatId, messageIndex: msg.idx });
+    setDeletingIndex(null);
   };
 
   const handleSaveEdit = async () => {
+    const text = editingText.trim();
+    if (!text) return;
     try {
-      const updated = [...messages];
-      updated[editingIndex].text = editingText;
-      setMessages(updated);
-      const aiIndex = editingIndex + 1;
-      // console.log(editingIndex)
-      // console.log(aiIndex)
-
-      await editMessage({
-        userId,
-        chatId,
-        messageIndex: editingIndex,
-        newText: editingText,
-      });
-      setTimeout(() => {
-        if (messageRefs.current[aiIndex]) {
-          messageRefs.current[aiIndex].scrollIntoView({ behavior: "smooth" });
-        }
-      }, 100); // give DOM time to update
-
-      showToast("Updated", "Message edited successfully.", "success");
-    } catch (error) {
-      console.log(error)
-      showToast("Error", "Failed to edit message.", "error");
-    } finally {
+      await editMessage({ userId, chatId, messageIndex: editingIndex, newText: text });
       setEditingIndex(null);
       setEditingText("");
-    }
-  }; 
-
-
-  const speakMessage = (text) => {
-    if (!text) return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-US";
-    speechSynthesis.speak(utterance);
-  };
-  const startListening = () => {
-    if (!("webkitSpeechRecognition" in window)) {
-      alert("Speech recognition not supported in this browser.");
-      return;
-    }
-
-    const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event) => {
-      const result = event.results[0][0].transcript;
-      setTranscript(result);
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-  };
-
-  const stopListening = () => {
-    recognitionRef.current?.stop();
-    setInput(transcript);
-    setTranscript("");
-  };
-
-  const cancelListening = () => {
-    recognitionRef.current?.abort();
-    setTranscript("");
-  };
-
-  const handlePaste = (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (let item of items) {
-      if (item.type.indexOf("image") === 0) {
-        const file = item.getAsFile();
-
-        if (file && file.type.startsWith("image/")) {
-          e.preventDefault(); // Stop the paste from inserting base64
-
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            setImagePreview(event.target.result); // base64 string
-            setImageFile(file); // original file
-          };
-          reader.readAsDataURL(file);
-          return; // Exit after handling image
-        }
-      }
-
-      if (item.type === "text/plain") {
-        const pastedText = e.clipboardData.getData("text/plain");
-        // Don't preventDefault for text
-        setInput((prev) => prev + pastedText);
-        e.preventDefault();
-        return;
-      }
+    } catch {
+      // useEditMessage already shows the error; keep the editor open.
     }
   };
-  const messageRefs = useRef([]);
-
-const renderMessageContent = (text) => {
-  if (!text) return null;
-
-  const codeBlockRegex = /```\s*([a-z]*)\n([\s\S]*?)```/g;
-  const elements = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = codeBlockRegex.exec(text)) !== null) {
-    const [fullMatch, language, code] = match;
-    const start = match.index;
-
-    // Add text before code block
-    if (start > lastIndex) {
-      elements.push(
-        <Text key={`text-${start}`} whiteSpace="pre-wrap">
-          {text.slice(lastIndex, start)}
-        </Text>
-      );
-    }
-
-    // Add syntax-highlighted code block with copy button
-    elements.push(
-      <Box
-        key={`code-${start}`}
-        position="relative"
-        my={4}
-        rounded="md"
-        overflow="hidden"
-        bg="#1e1e2f"
-      >
-        <CopyButton code={code} />
-        <SyntaxHighlighter
-          language={language || "javascript"}
-          style={dracula}
-          customStyle={{
-            padding: "1em",
-            margin: 0,
-            fontSize: "0.85rem",
-          }}
-        >
-          {code}
-        </SyntaxHighlighter>
-      </Box>
-    );
-
-    lastIndex = start + fullMatch.length;
-  }
-
-  // Add any remaining text after last code block
-  if (lastIndex < text.length) {
-    elements.push(
-      <Text key="text-end" whiteSpace="pre-wrap">
-        {text.slice(lastIndex)}
-      </Text>
-    );
-  }
-
-  return elements;
-};
-
-// CopyButton component
-const CopyButton = ({ code }) => {
-  const { hasCopied, onCopy } = useClipboard(code);
-  const handleCopy = () => {
-    onCopy(); // copy to clipboard
-    showToast("Copied", "Code copied to clipboard.", "success"); // show toast
-  };
-  return (
-    <IconButton
-      icon={<CopyIcon />}
-      aria-label="Copy Code"
-      size="sm"
-      variant="ghost"
-      color="gray.200"
-      position="absolute"
-      top={2}
-      right={2}
-      onClick={handleCopy}
-      _hover={{ bg: "whiteAlpha.200" }}
-      title={hasCopied ? "Copied!" : "Copy code"}
-    />
-  );
-};
-
-
-
-
 
   return (
-    <Flex direction="column" h="100vh" bg="#000" color="white">
-      <VStack
-        spacing={4}
-        p={4}
-        flex={1}
-        overflowY="auto"
-        align="center"
-        maxH="calc(100vh - 100px)"
-      >
-        <Box w="100%" maxW={{ base: "100%", md: "75%" }}>
-          {messages.map((msg, idx) => (
-            <Box
-              key={idx}
-              ref={(el) => (messageRefs.current[idx] = el)}
-              onMouseEnter={() => setHoveredIndex(idx)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
-              <Flex justify={msg.fromUser ? "flex-end" : "flex-start"} mb={1}>
-                <Box
-                  bg={msg.fromUser ? "blue.600" : "gray.700"}
-                  px={4}
-                  py={2}
-                  borderRadius="xl"
-                  fontSize={isMobile ? "sm" : "md"}
-                  wordBreak="break-word"
-                  whiteSpace="pre-wrap"
-                  maxW="80%"
-                >
-                  {editingIndex === idx ? (
-                    <Box
-                      bg="gray.700"
-                      borderRadius="xl"
-                      p={3}
-                      display="flex"
-                      flexDirection="column"
-                      gap={2}
-                    >
-                      <Textarea
-                        size="sm"
-                        value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
-                        bg="gray.800"
-                        color="white"
-                        border="1px solid white"
-                        borderRadius="lg"
-                        px={4}
-                        py={2}
-                        fontSize={isMobile ? "sm" : "md"}
-                        resize="none"
-                        _focus={{
-                          border: "1px solid white",
-                          boxShadow: "0 0 0 1px white",
-                        }}
-                        _placeholder={{ color: "gray.400" }}
-                      />
-
-                      <HStack justify="flex-end">
-                        <Button
-                          size="sm"
-                          colorScheme="gray"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingIndex(null);
-                            setEditingText("");
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          colorScheme="blue"
-                          onClick={handleSaveEdit}
-                          isLoading={editingLoading}
-                        >
-                          Send
-                        </Button>
-                      </HStack>
-                    </Box>
-
-                  ) : (
-                    <>
-                      {renderMessageContent(msg.text)}
-                      {msg.image && (
-                        <>
-                          <ChakraImage
-                            src={msg.image}
-                            alt="uploaded"
-                            mt={2}
-                            borderRadius="md"
-                            maxH="200px"
-                            onLoad={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })}
-                          />
-                          {msg.fileInfo && (
-                            <Text fontSize="xs" mt={1}>
-                              {msg.fileInfo.name} • {msg.fileInfo.type} •{" "}
-                              {msg.fileInfo.size}
-                            </Text>
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
-                </Box>
-              </Flex>
-
-              {hoveredIndex === idx && (
-                <HStack
-                  spacing={2}
-                  mt={1}
-                  justify={msg.fromUser ? "flex-end" : "flex-start"}
-                  px={2}
-                >
-                  <IconButton
-                    icon={<MdContentCopy />}
-                    size="xs"
-                    aria-label="Copy"
-                    variant="ghost"
-                    color="white"
-                    _hover={{ bg: "whiteAlpha.200" }}
-                    onClick={() => handleCopy(msg)}
-                  />
-
-                  <IconButton
-                    icon={<FaVolumeUp />}
-                    size="xs"
-                    aria-label="Read Aloud"
-                    variant="ghost"
-                    color="white"
-                    _hover={{ bg: "whiteAlpha.200" }}
-                    onClick={() => speakMessage(msg.text || "")}
-                  />
-                  {msg.fromUser && !msg.image && editingIndex !== idx && (
-                    <IconButton
-                      icon={<MdEdit />}
-                      size="xs"
-                      aria-label="Edit"
-                      variant="ghost"
-                      color="white"
-                      _hover={{ bg: "whiteAlpha.200" }}
-                      onClick={() => handleEdit(idx, msg)}
-                    />
-                  )}
-                  {msg.fromUser && editingIndex === idx && (
-                    <IconButton
-                      // icon={<IoIosArrowUp />}
-                      icon={editingLoading ? <Spinner size="xs" /> : <IoIosArrowUp />}
-                      size="xs"
-                      aria-label="Save"
-                      variant="ghost"
-                      color="white"
-                      _hover={{ bg: "whiteAlpha.200" }}
-                      onClick={handleSaveEdit}
-                    />
-                  )}
-                  <IconButton
-                    icon={<MdDeleteOutline />}
-                    size="xs"
-                    aria-label="Delete"
-                    variant="ghost"
-                    color="white"
-                    _hover={{ bg: "whiteAlpha.200" }}
-                    isLoading={loadingg}
-                    onClick={() => handleDelete(idx, msg)}
-                  />
-                </HStack>
-              )}
-            </Box>
-          ))}
-
-          {(loading) && (
-            <Box mb={2}>
-              <Spinner size="sm" color="gray.400" />
-            </Box>
-          )}
-
-          <div ref={messagesEndRef} />
-        </Box>
-      </VStack>
-
-      {imagePreview && (
-        <Box
-          maxW={{ base: "100%", md: "75%" }}
-          w="100%"
-          mx="auto"
-          mb={2}
-          p={2}
-          bg="gray.800"
-          borderRadius="md"
-        >
-          <ChakraImage
-            src={imagePreview}
-            alt="preview"
-            borderRadius="md"
-            maxH="150px"
-            mb={2}
-          />
-          {imageFile && (
-            <Text fontSize="xs">
-              {imageFile.name} • {imageFile.type} •{" "}
-              {(imageFile.size / 1024).toFixed(1)} KB
-            </Text>
-          )}
-        </Box>
-      )}
-
-      <Box p={3} borderTop="1px solid #333" bg="#000">
-        <Flex
-          align="center"
-          bg="gray.800"
-          borderRadius="lg"
-          px={3}
-          py={2}
-          gap={2}
-          maxW={{ base: "100%", md: "75%" }}
-          w="100%"
-          mx="auto"
-        >
-          <input
-            type="file"
-            hidden
-            ref={fileInputRef}
-            onChange={handleFileChange}
-          />
-          <IconButton
-            icon={<FaRegImage />}
-            variant="ghost"
-            aria-label="Upload Image"
-            color="gray.400"
-            _hover={{ bg: "gray.700" }}
-            onClick={() => fileInputRef.current.click()}
-          />
-          {transcript && (
-            <Flex
-              justify="space-between"
-              align="center"
-              bg="gray.700"
-              px={3}
-              py={2}
-              borderRadius="md"
-              mb={3}
-              color="white"
-              fontSize="sm"
-              wrap="wrap"
-            >
-              <Text flex="1">{transcript}</Text>
-              <Button
-                size="sm"
-                colorScheme="green"
-                borderRadius="full"
-                mr={2}
-                onClick={stopListening}
-              >
-                Correct
-              </Button>
-              <Button
-                size="sm"
-                colorScheme="red"
-                borderRadius="full"
-                onClick={cancelListening}
-              >
-                Close
-              </Button>
+    <Flex direction="column" h="100%">
+      <Box ref={scrollRef} flex={1} minH={0} overflowY="auto">
+        <Box maxW="820px" mx="auto" px={{ base: 3, sm: 4, md: 6 }} pt={{ base: 4, md: 8 }} pb={4}>
+          {isLoading && messages.length === 0 && (
+            <Flex justify="center" py={16}>
+              <Spinner color="accent" />
             </Flex>
           )}
 
+          {!isLoading && messages.length === 0 && !sending && (
+            <Flex direction="column" align="center" textAlign="center" py={16} gap={3} color="text.muted">
+              <BotLogo boxSize="44px" />
+              <Text fontSize="lg" fontWeight="semibold" color="text.default">Start the conversation</Text>
+              <Text fontSize="sm">Ask a question below to get going.</Text>
+            </Flex>
+          )}
 
-          <Textarea
-            placeholder="Type your message..."
+          {messages.map((msg, i) => {
+            const isEditing = msg.idx !== null && editingIndex === msg.idx;
+            return (
+              <Flex
+                key={msg.idx ?? `pending-${i}`}
+                role="group"
+                direction="column"
+                align={msg.fromUser ? "flex-end" : "flex-start"}
+                mb={5}
+              >
+                <Flex gap={3} align="flex-start" w="full" justify={msg.fromUser ? "flex-end" : "flex-start"}>
+                  {!msg.fromUser && <BotLogo boxSize="28px" flexShrink={0} mt={1} />}
+
+                  <Box
+                    maxW={msg.fromUser ? { base: "88%", md: "75%" } : "calc(100% - 40px)"}
+                    minW={0}
+                    w={isEditing ? "full" : undefined}
+                    bg={msg.fromUser ? "bubble.user" : "bubble.bot"}
+                    color={msg.fromUser ? "white" : "text.default"}
+                    px={4}
+                    py={2.5}
+                    borderRadius="2xl"
+                    borderTopRightRadius={msg.fromUser ? "sm" : "2xl"}
+                    borderTopLeftRadius={msg.fromUser ? "2xl" : "sm"}
+                    fontSize={{ base: "sm", md: "md" }}
+                    opacity={msg.idx === null ? 0.85 : 1}
+                  >
+                    {isEditing ? (
+                      <Flex direction="column" gap={2} minW={{ base: "auto", md: "420px" }}>
+                        <Textarea
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          bg="bg.surface"
+                          color="text.default"
+                          borderRadius="lg"
+                          fontSize="16px"
+                          rows={3}
+                          autoFocus
+                        />
+                        <HStack justify="flex-end">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            color="white"
+                            _hover={{ bg: "whiteAlpha.200" }}
+                            onClick={() => setEditingIndex(null)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button size="sm" bg="white" color="blue.600" onClick={handleSaveEdit} isLoading={editingLoading}>
+                            Save & regenerate
+                          </Button>
+                        </HStack>
+                      </Flex>
+                    ) : (
+                      <>
+                        {msg.image && (
+                          <Image
+                            src={msg.image}
+                            alt="Uploaded"
+                            borderRadius="lg"
+                            maxH={{ base: "220px", md: "300px" }}
+                            objectFit="contain"
+                            mb={msg.text ? 2 : 0}
+                          />
+                        )}
+                        <MessageContent text={msg.text} />
+                      </>
+                    )}
+                  </Box>
+                </Flex>
+
+                {msg.idx !== null && !isEditing && (
+                  <HStack
+                    spacing={0}
+                    mt={1}
+                    pl={msg.fromUser ? 0 : "40px"}
+                    opacity={0}
+                    transition="opacity 0.15s"
+                    _groupHover={{ opacity: 1 }}
+                    _focusWithin={{ opacity: 1 }}
+                    sx={{ "@media (hover: none)": { opacity: 1 } }}
+                  >
+                    <ActionButton label="Copy" icon={<FiCopy />} onClick={() => handleCopy(msg)} />
+                    {msg.text && <ActionButton label="Read aloud" icon={<FiVolume2 />} onClick={() => speakMessage(msg.text)} />}
+                    {msg.fromUser && !msg.image && (
+                      <ActionButton
+                        label="Edit"
+                        icon={<FiEdit2 />}
+                        onClick={() => {
+                          setEditingIndex(msg.idx);
+                          setEditingText(msg.text || "");
+                        }}
+                      />
+                    )}
+                    <ActionButton
+                      label="Delete"
+                      icon={<FiTrash2 />}
+                      isLoading={deletingIndex === msg.idx}
+                      onClick={() => handleDelete(msg)}
+                    />
+                  </HStack>
+                )}
+              </Flex>
+            );
+          })}
+
+          {(sending || editingLoading) && <TypingIndicator />}
+        </Box>
+      </Box>
+
+      <Box
+        flexShrink={0}
+        px={{ base: 3, sm: 4, md: 6 }}
+        pt={2}
+        pb="max(12px, env(safe-area-inset-bottom))"
+        bg="bg.canvas"
+      >
+        <Box maxW="820px" mx="auto">
+          <Composer
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste} // ✅ Add this
-            resize="none"
-            overflowY="auto"
-            maxHeight="120px"
-            border="none"
-            bg="transparent"
-            color="white"
-            flex={1}
-            fontSize={isMobile ? "sm" : "md"}
-            _focus={{ border: "1px solid white" }}
-            css={{
-              "&::-webkit-scrollbar": { width: "4px" },
-              "&::-webkit-scrollbar-thumb": {
-                background: "#888",
-                borderRadius: "6px",
-              },
-            }}
+            onChange={setInput}
+            onSend={handleSend}
+            attachment={attachment}
+            onAttach={setAttachment}
+            isSending={sending}
           />
-
-
-          <IconButton
-            icon={<FaMicrophone />}
-            variant="ghost"
-            aria-label="Mic"
-            color="gray.400"
-            _hover={{ bg: "gray.700" }}
-            onClick={startListening}
-          />
-
-          <IconButton
-            icon={<IoIosArrowUp style={{ transform: "scale(1.3)" }} />}
-            isRound
-            aria-label="Send"
-            onClick={handleSend}
-            bg={input.trim() || imagePreview ? "white" : "transparent"}
-            color={input.trim() || imagePreview ? "black" : "gray.400"}
-            _hover={{
-              bg:
-                input.trim() || imagePreview
-                  ? "whiteAlpha.800"
-                  : "gray.700",
-            }}
-          />
-        </Flex>
+          <Text fontSize="xs" color="text.muted" textAlign="center" mt={2} display={{ base: "none", sm: "block" }}>
+            GH-GPT can make mistakes. Check important info.
+          </Text>
+        </Box>
       </Box>
     </Flex>
   );

@@ -1,105 +1,123 @@
-import React, { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
+  Button,
+  Flex,
   Heading,
-  VStack,
-  Text,
   IconButton,
-  HStack,
-  Spacer,
-  Spinner
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Skeleton,
+  Stack,
+  Text,
+  Tooltip,
 } from "@chakra-ui/react";
-import { DeleteIcon } from "@chakra-ui/icons";
-import { useNavigate } from "react-router-dom";
+import { FiMessageSquare, FiPlus, FiSearch, FiTrash2 } from "react-icons/fi";
+import { Link as RouterLink } from "react-router-dom";
 import useAiChatActions from "../../hooks/useAiChatActions";
 import useAiChatStore from "../../store/useAiChatStore";
-import useShowToast from "../../hooks/useShowToast";
+import { unwrapUser } from "../../utils/auth";
+import { timeAgo } from "../../utils/timeAgo";
+
+const chatTitle = (chat) => (chat.title && chat.title !== "." ? chat.title : "New chat");
 
 const MessagesPage = ({ authUser }) => {
-  const user=authUser.user?authUser.user:authUser
-  const userId = user._id;
-
+  const userId = unwrapUser(authUser)?._id;
   const { fetchUserChats, removeUserChat, isLoading } = useAiChatActions();
-  const { userChats } = useAiChatStore();
-  const navigate = useNavigate();
-  const showToast = useShowToast();
+  const userChats = useAiChatStore((state) => state.userChats);
+  const [filter, setFilter] = useState("");
+  const [deleting, setDeleting] = useState(null);
 
   useEffect(() => {
-    if (userId) {
-      fetchUserChats(userId);
-    }
+    if (userId) fetchUserChats(userId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  const handleDelete = async (chatId) => {
-    try {
-      // console.log(chatId)
-      await removeUserChat(userId,chatId);
-      showToast("Deleted", "Chat has been removed", "success");
-    } catch (err) {
-      showToast("Error", "Failed to delete chat", "error");
-    }
-  };
+  const chats = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    return [...userChats].reverse().filter((c) => !q || chatTitle(c).toLowerCase().includes(q));
+  }, [userChats, filter]);
 
-  const handleOpenChat = (chatId) => {
-    navigate(`/chat/${chatId}`);
+  const handleDelete = async (chatId) => {
+    setDeleting(chatId);
+    await removeUserChat(userId, chatId);
+    setDeleting(null);
   };
 
   return (
-    <Box p={{ base: 2, md: 4 }} bg="#000" minH="100vh" color="white">
-      <Heading size="lg" mb={4} textAlign="center">
-        AI Chat History
-      </Heading>
-
-      <Box
-        maxH="80vh"
-        overflowY="auto"
-        border="1px solid #333"
-        borderRadius="md"
-        p={2}
-      >
-        {isLoading ? (
-          <Spinner color="white" />
-        ) : userChats.length === 0 ? (
-          <Text color="gray.400" textAlign="center">
-            No chats yet.
+    <Box maxW="820px" mx="auto" px={{ base: 4, md: 6 }} py={{ base: 6, md: 10 }}>
+      <Flex align={{ base: "stretch", sm: "center" }} justify="space-between" gap={4} mb={6} direction={{ base: "column", sm: "row" }}>
+        <Box>
+          <Heading size="lg" letterSpacing="-0.02em">Chat history</Heading>
+          <Text color="text.muted" fontSize="sm" mt={1}>
+            {userChats.length} conversation{userChats.length === 1 ? "" : "s"}
           </Text>
-        ) : (
-          <VStack spacing={1} align="stretch">
-          {[...userChats].reverse().map((conv) => (
-              <Box
-                key={conv._id}
-                px={3}
-                py={1}
-                borderWidth="1px"
-                borderColor="gray.700"
-                borderRadius="md"
-                bg="gray.900"
-                _hover={{ bg: "gray.800", cursor: "pointer" }}
-                onClick={() => handleOpenChat(conv.chatId)}
-              >
-                <HStack>
-                  <Text fontWeight="bold" noOfLines={1} fontSize="sm">
-                    {conv.title || conv.latestMessage?.text?.slice(0, 25) || "Untitled Chat"}
-                  </Text>
-                  <Spacer />
-                  <IconButton
-                    icon={<DeleteIcon />}
-                    aria-label="Delete conversation"
-                    colorScheme="red"
-                    size="xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(conv.chatId);
+        </Box>
+        <Button as={RouterLink} to="/dashboard" leftIcon={<FiPlus />} colorScheme="blue" size="sm">
+          New chat
+        </Button>
+      </Flex>
 
-                    }}
-                  />
-                </HStack>
-                <Text fontSize="xs" color="gray.400" textAlign="right" mt="1px">
-                  {new Date(conv.createdAt).toLocaleString()}
-                </Text>
+      <InputGroup mb={4}>
+        <InputLeftElement pointerEvents="none" color="text.muted"><FiSearch /></InputLeftElement>
+        <Input
+          placeholder="Filter by title"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          bg="bg.surface"
+          borderColor="border.default"
+          fontSize="16px"
+        />
+      </InputGroup>
+
+      <Box bg="bg.surface" borderWidth="1px" borderColor="border.default" borderRadius="xl" overflow="hidden">
+        {isLoading && userChats.length === 0 ? (
+          <Stack p={4} spacing={3}>
+            {[0, 1, 2, 3].map((i) => <Skeleton key={i} h="44px" borderRadius="md" />)}
+          </Stack>
+        ) : chats.length === 0 ? (
+          <Flex direction="column" align="center" py={14} px={4} gap={2} color="text.muted" textAlign="center">
+            <FiMessageSquare size={28} />
+            <Text>{filter ? "No chats match your filter." : "No chats yet. Start a new one!"}</Text>
+          </Flex>
+        ) : (
+          chats.map((chat, i) => (
+            <Flex
+              key={chat.chatId}
+              as={RouterLink}
+              to={`/chat/${chat.chatId}`}
+              align="center"
+              gap={3}
+              px={4}
+              py={3}
+              borderTopWidth={i === 0 ? 0 : "1px"}
+              borderColor="border.default"
+              _hover={{ bg: "bg.hover" }}
+              role="group"
+            >
+              <Box color="text.muted" flexShrink={0}><FiMessageSquare /></Box>
+              <Box flex={1} minW={0}>
+                <Text fontWeight="medium" noOfLines={1}>{chatTitle(chat)}</Text>
+                <Text fontSize="xs" color="text.muted">{chat.createdAt ? timeAgo(new Date(chat.createdAt).getTime()) : ""}</Text>
               </Box>
-            ))}
-          </VStack>
+              <Tooltip label="Delete chat" hasArrow openDelay={400}>
+                <IconButton
+                  icon={<FiTrash2 />}
+                  aria-label="Delete chat"
+                  variant="ghost"
+                  colorScheme="red"
+                  size="sm"
+                  isLoading={deleting === chat.chatId}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDelete(chat.chatId);
+                  }}
+                />
+              </Tooltip>
+            </Flex>
+          ))
         )}
       </Box>
     </Box>
