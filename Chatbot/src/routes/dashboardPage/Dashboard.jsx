@@ -8,6 +8,7 @@ import useAuthStore from "../../store/useAuthStore.js";
 import { unwrapUser } from "../../utils/auth";
 import Composer from "../../components/Chat/Composer";
 import Brand from "../../components/ui/Brand";
+import NotificationPrompt from "../../components/Settings/NotificationPrompt";
 
 const SUGGESTIONS = [
   { icon: FiEdit3, label: "Write a professional email", prompt: "Write a professional email asking my manager for a day off next Friday." },
@@ -44,6 +45,7 @@ const Dashboard = () => {
   return (
     <Flex minH="100%" direction="column" align="center" justify="center" px={{ base: 4, md: 6 }} py={{ base: 8, md: 12 }}>
       <Box w="full" maxW="720px">
+        <NotificationPrompt />
         <Flex direction="column" align="center" textAlign="center" mb={{ base: 6, md: 8 }} gap={3}>
           <Brand showText={false} size="48px" to="/dashboard" />
           <Heading fontSize={{ base: "2xl", md: "3xl" }} letterSpacing="-0.02em">

@@ -5,6 +5,7 @@ import { Authpage } from "./pages/Authpage/Authpage.jsx";
 import PageLayout from "./Layouts/PageLayouts/PageLayout.jsx";
 import useAuthStore from "./store/useAuthStore.js";
 import { fetchCurrentUser } from "./utils/auth.js";
+import { syncPushSubscription } from "./utils/push.js";
 import { ProfilePage } from './pages/ProfilePage/ProfilePage';
 import MessagesPage from './pages/Messages/Messages';
 import useLogout from "./hooks/useLogout.js";
@@ -85,7 +86,10 @@ export default function App() {
         }
         const controller = new AbortController();
         fetchCurrentUser(token, { signal: controller.signal })
-            .then((freshUser) => setAuthUser(freshUser))
+            .then((freshUser) => {
+                setAuthUser(freshUser);
+                syncPushSubscription(); // keep this device linked to the signed-in account
+            })
             .catch((error) => {
                 if (error.name === "CanceledError") return;
                 // An expired/invalid token ends the session; network errors keep the cached user.

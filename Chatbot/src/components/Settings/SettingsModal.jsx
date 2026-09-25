@@ -20,6 +20,7 @@ import {
     useColorMode,
 } from "@chakra-ui/react";
 import { FiDownload } from "react-icons/fi";
+import PushSettings from "./PushSettings";
 import { Link as RouterLink } from "react-router-dom";
 import useShowToast from "../../hooks/useShowToast";
 import {
@@ -103,6 +104,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         </Box>
                         <Switch isChecked={emailOn} onChange={(e) => toggleEmail(e.target.checked)} isDisabled={savingEmail || !emailInfo} colorScheme="blue" />
                     </Flex>
+
+                    <Divider my={5} borderColor="border.default" />
+
+                    <PushSettings onNavigate={onClose} />
 
                     <Divider my={5} borderColor="border.default" />
 

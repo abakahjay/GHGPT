@@ -16,6 +16,8 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
+        // Device notifications (Web Push) - public/push-sw.js
+        importScripts: ['/push-sw.js'],
         navigateFallback: '/index.html',
         // Never answer API calls with the app shell.
         navigateFallbackDenylist: [/^\/api\//],
