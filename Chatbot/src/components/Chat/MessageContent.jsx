@@ -25,6 +25,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import ChartBlock from "./ChartBlock";
 
 function CodeBlock({ language, code }) {
     const { hasCopied, onCopy } = useClipboard(code);
@@ -54,7 +55,7 @@ function CodeBlock({ language, code }) {
 }
 
 // Maps Markdown elements onto themed Chakra components.
-const components = {
+const makeComponents = (streaming) => ({
     p: ({ children }) => <Text mb={3} _last={{ mb: 0 }} lineHeight="1.75">{children}</Text>,
     h1: ({ children }) => <Heading as="h3" size="md" mt={4} mb={2}>{children}</Heading>,
     h2: ({ children }) => <Heading as="h4" size="sm" mt={4} mb={2}>{children}</Heading>,
@@ -81,20 +82,24 @@ const components = {
     code: ({ className, children }) => {
         const match = /language-([\w+-]+)/.exec(className || "");
         const text = String(children ?? "");
+        // ```chart blocks from the AI become real charts.
+        if (match?.[1] === "chart") return <ChartBlock source={text} streaming={streaming} />;
         // Fenced blocks get a language class or span several lines; everything else is inline.
         if (match || text.includes("\n")) {
             return <CodeBlock language={match?.[1]} code={text.replace(/\n$/, "")} />;
         }
         return <Code fontSize="0.85em" px={1} borderRadius="md">{text}</Code>;
     },
-};
+});
+const components = makeComponents(false);
+const streamingComponents = makeComponents(true);
 
 // Renders a message as GitHub-flavoured Markdown (tables, lists, code blocks...).
-const MessageContent = ({ text }) => {
+const MessageContent = ({ text, streaming = false }) => {
     if (!text) return null;
     return (
         <Box wordBreak="break-word" sx={{ "& > *:first-of-type": { mt: 0 } }}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={streaming ? streamingComponents : components}>
                 {text}
             </ReactMarkdown>
         </Box>

@@ -16,6 +16,9 @@ import GoogleCallback from "./pages/Authpage/GoogleCallback.jsx";
 const ChatPage = lazy(() => import("./routes/chatPage/Chatpage1.jsx"));
 const Control = lazy(() => import("./pages/ControlElectrical/Control.jsx"));
 const InstallPage = lazy(() => import("./pages/Install/InstallPage.jsx"));
+const LegalPage = lazy(() => import("./pages/Legal/LegalPage.jsx"));
+const PrivacyPage = (props) => <LegalPage {...props} page="privacy" />;
+const TermsPage = (props) => <LegalPage {...props} page="terms" />;
 
 // Wraps a page in the app shell and redirects to /auth when logged out.
 // Reading the store here (instead of closing over props) lets the router be
@@ -60,6 +63,8 @@ const router = createBrowserRouter([
     { path: '/history', element: <Protected page={MessagesPage} /> },
     { path: '/control', element: <PublicPage page={Control} /> },
     { path: '/install', element: <PublicPage page={InstallPage} /> },
+    { path: '/privacy', element: <PublicPage page={PrivacyPage} /> },
+    { path: '/terms', element: <PublicPage page={TermsPage} /> },
     { path: '/:username', element: <Protected page={ProfilePage} /> },
     { path: '*', element: <Navigate to="/" replace /> },
 ]);

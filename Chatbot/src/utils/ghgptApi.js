@@ -66,6 +66,23 @@ export async function uploadChatImage(file) {
     return data.fileId;
 }
 
+// Uploads a document (PDF, Word, Excel, CSV, PowerPoint, text/code); the backend
+// extracts its text. Resolves to { id, name, size, kind, pages, chars, truncated }.
+export async function uploadChatFile(file) {
+    const form = new FormData();
+    form.append("file", file);
+    const { data } = await API.post("/api/v1/ghgpt/files", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+}
+
+// File types the backend can read (see FullBackendd utils/ghgptFiles.js).
+export const DOCUMENT_ACCEPT =
+    ".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.pptx,.txt,.md,.json,.xml,.html,.css,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.h,.cs,.go,.rb,.php,.rs,.kt,.swift,.sql,.sh,.yml,.yaml,.toml,.ini,.log";
+export const isDocumentFile = (file) =>
+    DOCUMENT_ACCEPT.split(",").some((ext) => file.name.toLowerCase().endsWith(ext));
+
 export const renameChat = (chatId, title) =>
     API.patch(`/api/v1/ghgpt/chats/${chatId}/title`, { title }).then((r) => r.data.chat);
 

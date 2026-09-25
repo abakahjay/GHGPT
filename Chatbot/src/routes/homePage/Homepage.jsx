@@ -117,9 +117,9 @@ const Homepage = ({ authUser }) => {
         textAlign="center"
       >
         <HStack spacing={3}>
-          <Link as={RouterLink} to="/">Terms of Service</Link>
+          <Link as={RouterLink} to="/terms">Terms of Use</Link>
           <Text>|</Text>
-          <Link as={RouterLink} to="/">Privacy Policy</Link>
+          <Link as={RouterLink} to="/privacy">Privacy Policy</Link>
           <Text>|</Text>
           <Link as={RouterLink} to="/install">Get the app</Link>
         </HStack>
