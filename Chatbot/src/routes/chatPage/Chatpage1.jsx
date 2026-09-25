@@ -13,7 +13,7 @@ import {
   Textarea,
   Tooltip,
 } from "@chakra-ui/react";
-import { FiAlertTriangle, FiArrowDown, FiCopy, FiDownload, FiEdit2, FiFileText, FiRefreshCw, FiTrash2, FiVolume2 } from "react-icons/fi";
+import { FiAlertTriangle, FiArrowDown, FiCopy, FiDownload, FiEdit2, FiFileText, FiImage, FiRefreshCw, FiTrash2, FiVolume2 } from "react-icons/fi";
 import { useParams } from "react-router-dom";
 import useShowToast from "../../hooks/useShowToast";
 import useGetChat from "../../hooks/useGetChat";
@@ -33,6 +33,8 @@ const BotLogo = chakra(ChatGptLogo1);
 
 // A freshly created chat starts with a "." placeholder message that the
 // backend drops once the first real question arrives; it is never shown.
+// Old answers where a model wrote an image tool call ("dalle.text2im", "[[IMAGE: ...]]") as text.
+const STALE_IMAGE_REQUEST = /dall-?e|text2im|\[\[\s*IMAGE\s*:/i;
 const isPlaceholder = (msg) => msg.fromUser && !msg.image && msg.text === ".";
 
 // Arguments for run() when sending a new message with Composer attachments.
@@ -502,7 +504,15 @@ const ChatPage = ({ authUser }) => {
                         />
                       </Box>
                     )}
-                    <MessageContent text={msg.text} />
+                    {!msg.image && STALE_IMAGE_REQUEST.test(msg.text || "") ? (
+                      // An older answer where the AI wrote an image "tool call" instead of a picture.
+                      <Flex align="center" gap={2} p={3} borderRadius="lg" borderWidth="1px" borderColor="border.default" bg="bg.subtle" fontSize="sm" color="text.muted">
+                        <FiImage />
+                        <Text>This picture wasn&apos;t created. {msg.idx === lastAnswerIdx ? "Press Regenerate below to create it." : "Ask for it again to create it."}</Text>
+                      </Flex>
+                    ) : (
+                      <MessageContent text={msg.text} />
+                    )}
                   </>,
                   !live && (
                     <HStack spacing={0} mt={1} ml={-1.5} opacity={msg.idx === lastAnswerIdx ? 1 : 0} transition="opacity 0.15s" _groupHover={{ opacity: 1 }} _focusWithin={{ opacity: 1 }} sx={{ "@media (hover: none)": { opacity: 1 } }}>
