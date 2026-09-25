@@ -27,7 +27,7 @@ function RecentChats({ userId, onNavigate }) {
     if (recent.length === 0) return null;
 
     return (
-        <Box flex={1} minH={0} overflowY="auto" mx={-1} px={1}>
+        <Box flex={1} minH={0} overflowY="auto" mx={-1} px={1} className="scroll-on-hover">
             <Text fontSize="xs" fontWeight="semibold" color="text.muted" px={3} mb={1} textTransform="uppercase" letterSpacing="wider">
                 Recent
             </Text>

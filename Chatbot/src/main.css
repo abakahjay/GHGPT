@@ -1,6 +1,12 @@
+/* Thin, theme-neutral scrollbars everywhere. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(127, 127, 140, 0.35) transparent;
+}
+
 ::-webkit-scrollbar {
-	width: 8px;
-	height: 8px;
+	width: 6px;
+	height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -8,10 +14,24 @@
 }
 
 ::-webkit-scrollbar-thumb {
-	background: rgba(127, 127, 140, 0.4);
+	background: rgba(127, 127, 140, 0.35);
 	border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-	background: rgba(127, 127, 140, 0.65);
+	background: rgba(127, 127, 140, 0.6);
+}
+
+/* Side panels only reveal their scrollbar while hovered. */
+.scroll-on-hover {
+	scrollbar-color: transparent transparent;
+}
+.scroll-on-hover:hover {
+	scrollbar-color: rgba(127, 127, 140, 0.35) transparent;
+}
+.scroll-on-hover::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+.scroll-on-hover:hover::-webkit-scrollbar-thumb {
+	background: rgba(127, 127, 140, 0.35);
 }

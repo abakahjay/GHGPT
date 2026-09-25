@@ -8,6 +8,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered from main.jsx via virtual:pwa-register.
+      injectRegister: false,
+      workbox: {
+        cleanupOutdatedCaches: true,
+        navigateFallback: '/index.html',
+      },
       manifest: {
         name: 'GH-GPT',
         short_name: 'GH-GPT',

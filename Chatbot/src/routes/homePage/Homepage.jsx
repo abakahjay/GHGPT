@@ -1,7 +1,4 @@
 import { Link as RouterLink } from "react-router-dom";
-import "./homepage.css";
-import { useMemo, useState } from "react";
-import { TypeAnimation } from "react-type-animation";
 import {
   Box,
   Button,
@@ -10,7 +7,6 @@ import {
   Heading,
   HStack,
   Icon,
-  Image,
   Link,
   SimpleGrid,
   Stack,
@@ -18,36 +14,7 @@ import {
 } from "@chakra-ui/react";
 import { FiArrowRight, FiBriefcase, FiCode, FiEdit3, FiImage, FiMic } from "react-icons/fi";
 import Navbar from "../../components/NavBar/Navbar.jsx";
-
-const CONVERSATION = [
-  // Productivity
-  "User: Summarize this 10-page PDF for me.", 2000, "bot",
-  "GH-GPT: Done. Here's a 3-paragraph summary with key bullet points.", 2000, "human2",
-  "User: Can you rewrite this in simpler English?", 2000, "bot",
-  "GH-GPT: Sure. Here's the revised version with improved clarity.", 2000, "human1",
-  // Developer
-  "User: Convert this Python function to JavaScript.", 2000, "bot",
-  "GH-GPT: Converted! Here's the JavaScript version of your code.", 2000, "human2",
-  "User: Explain how OAuth 2.0 works in simple terms.", 2000, "bot",
-  "GH-GPT: It's like a valet key to access data without sharing passwords.", 2000, "human1",
-  // Academic
-  "Student: Can you explain Newton's second law?", 2000, "bot",
-  "GH-GPT: Sure! F = ma — force equals mass times acceleration.", 2000, "human2",
-  "Student: Help me cite this article in APA.", 2000, "bot",
-  "GH-GPT: Here's the correct APA format for your reference.", 2000, "human1",
-  // Business
-  "Manager: Create a weekly meeting agenda.", 2000, "bot",
-  "GH-GPT: Here's a structured agenda with time slots.", 2000, "human2",
-  "Manager: Write a job description for a React developer.", 2000, "bot",
-  "GH-GPT: Here's a complete job posting template.", 2000, "human1",
-  // Creative
-  "Writer: Start a short story about a lost robot.", 2000, "bot",
-  "GH-GPT: In a forgotten scrapyard, a robot blinked awake for the first time...", 2000, "human2",
-  "Writer: Suggest 5 titles for a sci-fi novel.", 2000, "bot",
-  "GH-GPT: Here's a list of futuristic and engaging titles.", 2000, "human1",
-];
-
-const AVATARS = { human1: "/human1.jpeg", human2: "/human2.jpeg", bot: "/bot.png" };
+import ChatShowcase from "../../components/Home/ChatShowcase.jsx";
 
 const FEATURES = [
   { icon: FiEdit3, title: "Write & summarize", text: "Drafts, rewrites and summaries in seconds." },
@@ -57,31 +24,9 @@ const FEATURES = [
 ];
 
 const Homepage = ({ authUser }) => {
-  const [typingStatus, setTypingStatus] = useState("human1");
-
-  // Turn the "who speaks next" markers into callbacks for TypeAnimation.
-  // TypeAnimation reads the sequence once, so build it once.
-  const sequence = useMemo(
-    () => CONVERSATION.map((step) => (AVATARS[step] ? () => setTypingStatus(step) : step)),
-    []
-  );
-
   return (
-    <Flex direction="column" minH="100dvh" bg="bg.canvas" position="relative" overflowX="hidden">
+    <Flex direction="column" minH="100dvh" bg="bg.canvas" position="relative" overflowX="clip">
       <Navbar authUser={authUser} />
-
-      <Image
-        src="/orbital.png"
-        alt=""
-        className="hp-orbital"
-        position="absolute"
-        bottom={0}
-        left={0}
-        opacity={0.05}
-        zIndex={0}
-        pointerEvents="none"
-        maxW={{ base: "120%", md: "60%" }}
-      />
 
       <Container maxW="6xl" flex={1} display="flex" alignItems="center" py={{ base: 8, md: 12 }} position="relative" zIndex={1}>
         <Stack
@@ -114,7 +59,10 @@ const Homepage = ({ authUser }) => {
               <Button
                 as={RouterLink}
                 to={authUser ? "/dashboard" : "/auth"}
-                colorScheme="blue"
+                bg="blue.500"
+                color="white"
+                _hover={{ bg: "blue.600", transform: "translateY(-1px)", boxShadow: "lg" }}
+                _active={{ bg: "blue.700" }}
                 size="lg"
                 rightIcon={<FiArrowRight />}
                 borderRadius="full"
@@ -125,62 +73,9 @@ const Homepage = ({ authUser }) => {
             </HStack>
           </Stack>
 
-          {/* Animated bot card */}
-          <Flex flex={1} direction="column" align="center" w="full" gap={4}>
-            <Box
-              position="relative"
-              w="full"
-              maxW={{ base: "240px", sm: "280px", md: "320px" }}
-              aspectRatio={1}
-              bg="#140e2d"
-              borderRadius="3xl"
-              overflow="hidden"
-              boxShadow="0 20px 60px -20px rgba(33, 123, 254, 0.45)"
-            >
-              <Box position="absolute" inset={0} opacity={0.2} w="200%" className="hp-bg" />
-              <Image
-                src="/bot.png"
-                alt="GH-GPT robot"
-                className="hp-bot"
-                position="relative"
-                w="70%"
-                h="70%"
-                objectFit="contain"
-                m="15%"
-              />
-            </Box>
-
-            <Flex
-              align="center"
-              gap={3}
-              px={4}
-              py={3}
-              w="full"
-              maxW="420px"
-              minH="64px"
-              bg="bg.surface"
-              borderWidth="1px"
-              borderColor="border.default"
-              borderRadius="xl"
-              boxShadow="md"
-              fontSize={{ base: "sm", md: "md" }}
-            >
-              <Image
-                src={AVATARS[typingStatus]}
-                alt=""
-                boxSize="32px"
-                borderRadius="full"
-                objectFit="cover"
-                flexShrink={0}
-              />
-              <TypeAnimation
-                sequence={sequence}
-                wrapper="span"
-                repeat={Infinity}
-                cursor={true}
-                omitDeletionAnimation={true}
-              />
-            </Flex>
+          {/* Product preview */}
+          <Flex flex={1} w="full" justify="center">
+            <ChatShowcase />
           </Flex>
         </Stack>
       </Container>

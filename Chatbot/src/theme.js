@@ -34,13 +34,26 @@ const theme = extendTheme({
             body: {
                 bg: "bg.canvas",
                 color: "text.default",
-                overflowX: "hidden",
+                overflowX: "clip",
             },
         },
     },
     components: {
         Button: {
             baseStyle: { borderRadius: "lg", fontWeight: "semibold" },
+            variants: {
+                // Chakra's dark mode turns solid blue into a pale blue with dark
+                // text; keep the brand blue with white text in both modes.
+                solid: (props) =>
+                    props.colorScheme === "blue"
+                        ? {
+                              bg: "blue.500",
+                              color: "white",
+                              _hover: { bg: "blue.600", _disabled: { bg: "blue.500" } },
+                              _active: { bg: "blue.700" },
+                          }
+                        : {},
+            },
         },
         Modal: {
             baseStyle: {
