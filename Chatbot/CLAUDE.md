@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 GH-GPT: a React 18 + Vite single-page frontend for an AI chatbot (with some leftover Instagram-clone features: feed posts, profiles, follows, DMs). It is **frontend only**. Everything goes through the separate Express backend FullBackendd. The AI calls happen on the backend; the frontend never calls an LLM itself.
 
-This folder is `Chatbot/` inside the `abakahjayy/GHGPT` repo, which is what the Render deploy builds from.
+This folder is `Chatbot/` inside the `abakahjay/GHGPT` repo, which is what the Render deploy builds from.
 
 ## Commands
 
