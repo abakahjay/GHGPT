@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-GH-GPT: a React 18 + Vite single-page frontend for an AI chatbot (with some leftover Instagram-clone features: feed posts, profiles, follows, DMs). It is **frontend only**. Everything goes through the separate Express backend FullBackendd. The AI calls happen on the backend; the frontend never calls an LLM itself.
+GH-GPT: a React 18 + Vite single-page frontend for an AI chatbot (with some leftover social features from the earlier Nsoro code: feed posts, profiles, follows, DMs). It is **frontend only**. Everything goes through the separate Express backend FullBackendd. The AI calls happen on the backend; the frontend never calls an LLM itself.
 
 This folder is `Chatbot/` inside the `abakahjay/GHGPT` repo, which is what the Render deploy builds from.
 
@@ -66,7 +66,7 @@ Shared pieces are in `components/ui/` (`Brand`, `ColorModeToggle`), `components/
 Nothing imports these files:
 - `src/lib/gemini.js` (its `@google/generative-ai` package isn't installed) and `src/firebase/firebase.js`
 - `components/ChatApp/ChatAppDemo.jsx` (socket.io demo) and `components/test/Try1.jsx`
-- the feed/post/comment/follow components from the Instagram clone
+- the feed/post/comment/follow components from the earlier Nsoro code
 - `routes/Authpage/*`, which only re-exports `pages/Authpage/*`
 - `components/ui/{color-mode,provider,toaster,tooltip}.jsx`, which are thin Chakra v2 wrappers
 - `hooks/useCreateChat.js` and `hooks/useDeleteChat.js`, which delegate to `useAiChatActions`

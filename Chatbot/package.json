@@ -75,15 +75,15 @@
   "main": "eslint.config.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/abakahjay/Instagrams.git"
+    "url": "git+https://github.com/abakahjay/GHGPT.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/abakahjay/Instagrams/issues"
+    "url": "https://github.com/abakahjay/GHGPT/issues"
   },
-  "homepage": "https://github.com/abakahjay/Instagrams#readme",
+  "homepage": "https://github.com/abakahjay/GHGPT#readme",
   "allowScripts": {
     "@firebase/util@1.12.1": true,
     "esbuild@0.25.6": true,

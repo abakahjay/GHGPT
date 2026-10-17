@@ -1,6 +1,6 @@
 
 const Footer = () => {
-    return <footer>&copy; 2025 Instagram Clone</footer>;
+    return <footer>&copy; 2025 GH-GPT</footer>;
 };
 
 export default Footer;

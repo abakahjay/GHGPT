@@ -12,7 +12,7 @@ export function AuthForm({onAuth}){
         <>
             <Box border={"1px solid gray"} borderRadius={4} padding={5}>
                 <VStack spacing={4}>
-                    <Text  h={24} cursor={"pointer"} alt='Instagram' >GH-GPT</Text>
+                    <Text  h={24} cursor={"pointer"} alt='GH-GPT' >GH-GPT</Text>
 
                     {isLogin ? <Login onAuth={onAuth} /> : <Signup onAuth={onAuth}/>}
 
