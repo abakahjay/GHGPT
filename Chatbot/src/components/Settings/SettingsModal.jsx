@@ -21,6 +21,7 @@ import {
 } from "@chakra-ui/react";
 import { FiDownload } from "react-icons/fi";
 import PushSettings from "./PushSettings";
+import DeleteAccount from "./DeleteAccount";
 import { Link as RouterLink } from "react-router-dom";
 import useShowToast from "../../hooks/useShowToast";
 import {
@@ -130,6 +131,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             Install
                         </Button>
                     </Flex>
+
+                    <Divider my={5} borderColor="border.default" />
+
+                    <DeleteAccount onDone={onClose} />
                 </ModalBody>
                 <ModalFooter gap={2}>
                     <Button variant="ghost" onClick={onClose}>Cancel</Button>
