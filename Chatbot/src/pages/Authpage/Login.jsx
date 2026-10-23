@@ -10,9 +10,11 @@ import {
 	Input,
 	InputGroup,
 	InputRightElement,
+	Link,
 	VStack,
 } from "@chakra-ui/react";
 import useLogin from "../../hooks/useLogin";
+import { API_URL } from "../../utils/config";
 
 export default function Login() {
 	const { login, isLoading, error } = useLogin();
@@ -69,6 +71,15 @@ export default function Login() {
 			<Button type="submit" w="full" colorScheme="blue" isLoading={isLoading}>
 				Log in
 			</Button>
+			{/* Hosted by the backend: emails a reset link for the shared account */}
+			<Link
+				href={`${API_URL}/forgotPassword?app=shared&return=${encodeURIComponent(window.location.href)}`}
+				fontSize="sm"
+				color="gray.500"
+				alignSelf="center"
+			>
+				Forgot password?
+			</Link>
 		</VStack>
 	);
 }
