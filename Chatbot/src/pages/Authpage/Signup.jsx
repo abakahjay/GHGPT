@@ -15,7 +15,7 @@ import {
 } from "@chakra-ui/react";
 import useSignup from "../../hooks/useSignup";
 
-export default function Signup() {
+export default function Signup({ needsConsent = false, onNeedConsent = () => {} }) {
 	const [form, setForm] = useState({ firstName: "", lastName: "", username: "", email: "", password: "" });
 	const [showPassword, setShowPassword] = useState(false);
 	const { signup, isLoading, error } = useSignup();
@@ -24,6 +24,7 @@ export default function Signup() {
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
+		if (needsConsent) return onNeedConsent();
 		signup(form.email.trim(), form.password, form.firstName.trim(), form.lastName.trim(), form.username.trim());
 	};
 

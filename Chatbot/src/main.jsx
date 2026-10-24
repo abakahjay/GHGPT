@@ -1,6 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+// Inter is bundled with the site: loading it from Google's CDN sends every visitor's IP to Google (GDPR).
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/inter/800.css';
 import './index.css';//This is for the styles
 import './main.css';//This is for the styles
 import { ChakraProvider, ColorModeScript } from "@chakra-ui/react";

@@ -3,8 +3,9 @@ import { API_URL } from "../../utils/config";
 
 // The backend sends the token back to whatever redirect_uri we pass, so the
 // same code works on localhost and on the deployed site.
-const GoogleAuth = ({ prefix }) => {
+const GoogleAuth = ({ prefix, needsConsent = false, onNeedConsent = () => {} }) => {
 	const handleGoogleAuth = () => {
+		if (needsConsent) return onNeedConsent();
 		const redirectUri = `${window.location.origin}/auth/callback`;
 		window.location.href = `${API_URL}/api/v1/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
 	};
