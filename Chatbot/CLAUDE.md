@@ -74,3 +74,9 @@ Nothing imports these files:
 - `routes/homePage/homepage.css` (the homepage now uses `components/Home/ChatShowcase.jsx`)
 
 `npm run lint` is clean. Keep it that way.
+
+## Legal and security (keep these)
+
+- Sign-up (email **and** Google) needs the "I'm 13 or older and agree to the Terms of Use and Privacy Policy" checkbox (`pages/Authpage/AuthForm.jsx`, passed to `Signup` and `GoogleAuth` as `needsConsent`).
+- Terms (`pages/Legal/LegalPage.jsx`) include "Who can use it" (13+) and "Copyright complaints"; keep them.
+- Inter is bundled with `@fontsource/inter` (imported in `main.jsx`). Never link Google Fonts (GDPR).
