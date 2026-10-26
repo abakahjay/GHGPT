@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Box, Button, Checkbox, Flex, Heading, Link, Text, VStack } from "@chakra-ui/react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import { RotatingWords } from "../../components/ui/RotatingWords";
+
+// What GH-GPT is for, from its own description: writing, coding and idea generation.
+const ASSISTANT_USES = ["writing.", "coding.", "idea generation."];
 import Login from "./Login";
 import Signup from "./Signup";
 import GoogleAuth from "./GoogleAuth";
@@ -35,6 +39,9 @@ export function AuthForm({ onAuth }) {
                 </Heading>
                 <Text color="text.muted" fontSize="sm">
                     {isLogin ? "Log in to continue to GH-GPT" : "Start chatting with GH-GPT for free"}
+                </Text>
+                <Text color="text.muted" fontSize="sm">
+                    Your AI assistant for <Text as="span" color="accent" fontWeight="600"><RotatingWords words={ASSISTANT_USES} /></Text>
                 </Text>
             </VStack>
 
